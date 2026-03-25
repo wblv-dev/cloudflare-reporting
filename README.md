@@ -18,18 +18,27 @@ All checks are read-only. No changes are made to any zone.
 
 ## Requirements
 
+- Git ([download](https://git-scm.com/downloads))
 - Python 3.10+ ([download](https://www.python.org/downloads/))
 - Cloudflare API token with `Zone:Read` and `DNS:Read` scopes
 
-### Installing Python
+### Installing Git
 
-If you don't have Python installed:
+| Platform | Method |
+|----------|--------|
+| **macOS** | `brew install git` or `xcode-select --install` (includes Git) |
+| **Ubuntu/Debian** | `sudo apt install git` |
+| **Windows** | Download from [git-scm.com](https://git-scm.com/downloads/win) — use the default options during install |
+
+Verify with `git --version`.
+
+### Installing Python
 
 | Platform | Method |
 |----------|--------|
 | **macOS** | `brew install python` ([Homebrew](https://brew.sh/)) or download from [python.org](https://www.python.org/downloads/macos/) |
 | **Ubuntu/Debian** | `sudo apt install python3 python3-pip python3-venv` |
-| **Windows** | Download from [python.org](https://www.python.org/downloads/windows/) — tick "Add to PATH" during install |
+| **Windows** | Download from [python.org](https://www.python.org/downloads/windows/) — tick **"Add to PATH"** during install |
 
 Verify with `python3 --version` (or `python --version` on Windows).
 
@@ -46,20 +55,36 @@ See [Cloudflare API token docs](https://developers.cloudflare.com/fundamentals/a
 
 ## Setup
 
+### macOS / Linux
+
 ```bash
 git clone https://github.com/wblv-dev/cloudflare-reporting
 cd cloudflare-reporting
 python3 -m venv .venv
-source .venv/bin/activate        # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 export CF_API_TOKEN="your_token_here"
-# On Windows use: set CF_API_TOKEN=your_token_here
 ```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/wblv-dev/cloudflare-reporting
+cd cloudflare-reporting
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+$env:CF_API_TOKEN="your_token_here"
+```
+
+> **Note:** If PowerShell blocks the activate script, run
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
 
 ## Usage
 
 ```bash
-python3 audit.py
+python3 audit.py          # macOS / Linux
+python audit.py           # Windows
 ```
 
 By default the tool **auto-discovers every zone** accessible to the API token.
