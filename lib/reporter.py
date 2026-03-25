@@ -1033,17 +1033,6 @@ def _html_security_table(domains, security_results) -> str:
                 f'<td>{_esc(r.get("note", ""))}</td></tr>\n'
             )
 
-        findings = [r for r in sec["results"] if r["grade"] in ("FAIL", "WARN")]
-        findings_html = ""
-        if findings:
-            items = "".join(
-                f'<li><strong>{_tip(r["label"])}</strong> ({_badge(r["grade"])}): '
-                f'{_esc(r.get("explanation", ""))}</li>'
-                for r in findings if r.get("explanation")
-            )
-            if items:
-                findings_html = f'<div style="margin-top:12px"><strong>Findings</strong><ul style="margin:8px 0 0 20px">{items}</ul></div>'
-
         cards.append(
             f'<div class="domain-card" data-domain="{_esc(domain)}">'
             f'<div class="domain-card-header" onclick="toggleCard(this)">'
@@ -1060,7 +1049,6 @@ def _html_security_table(domains, security_results) -> str:
             f'<th>Grade <span class="sort-arrow"></span></th>'
             f'<th>Notes <span class="sort-arrow"></span></th>'
             f'</tr></thead><tbody>{rows}</tbody></table>'
-            f'{findings_html}'
             f'</div></div>'
         )
 
@@ -1574,25 +1562,26 @@ html[data-theme="dark"] .badge-info{background:#1e3a8a;color:#93c5fd}
 
 /* ── Tooltips ─────────────────────────────────────────────── */
 .has-tooltip{position:relative;border-bottom:1px dotted var(--text-muted);cursor:help}
-.has-tooltip::after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 8px);
-  left:50%;transform:translateX(-50%);background:#1e293b;color:#e2e8f0;padding:8px 12px;
+.has-tooltip::after{content:attr(data-tooltip);position:absolute;top:100%;margin-top:8px;
+  left:0;background:#1e293b;color:#e2e8f0;padding:8px 12px;
   border-radius:8px;font-size:.78em;font-weight:400;white-space:normal;width:max-content;
   max-width:300px;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:1000;
   opacity:0;pointer-events:none;transition:opacity .2s .5s,transform .2s .5s;
-  transform:translateX(-50%) translateY(4px)}
-.has-tooltip:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+  transform:translateY(-4px)}
+.has-tooltip:hover::after{opacity:1;transform:translateY(0)}
 html[data-theme="dark"] .has-tooltip::after{background:#334155;color:#f1f5f9}
-/* Arrow */
-.has-tooltip::before{content:"";position:absolute;bottom:calc(100% + 2px);left:50%;
-  transform:translateX(-50%);border:6px solid transparent;border-top-color:#1e293b;
+/* Arrow pointing upward */
+.has-tooltip::before{content:"";position:absolute;top:100%;margin-top:-4px;left:12px;
+  border:6px solid transparent;border-bottom-color:#1e293b;
   z-index:1001;opacity:0;pointer-events:none;transition:opacity .2s .5s}
 .has-tooltip:hover::before{opacity:1}
-html[data-theme="dark"] .has-tooltip::before{border-top-color:#334155}
-/* Ensure tooltips in th are visible */
+html[data-theme="dark"] .has-tooltip::before{border-bottom-color:#334155}
+/* Ensure tooltips in table cells are positioned correctly */
+td{position:relative}
 th .has-tooltip{color:inherit;border-bottom-color:rgba(255,255,255,.4)}
 
 /* ── GRC Overview ─────────────────────────────────────────── */
-.grc-top{display:grid;grid-template-columns:1fr 1.5fr;gap:32px;margin:24px 0;
+.grc-top{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin:32px 0;
   align-items:start}
 .grc-donut-section{display:flex;align-items:center;gap:24px;background:var(--bg-card);
   border:1px solid var(--border);border-radius:12px;padding:28px;box-shadow:var(--shadow)}
@@ -1612,7 +1601,7 @@ th .has-tooltip{color:inherit;border-bottom-color:rgba(255,255,255,.4)}
   margin-top:-6px;margin-bottom:4px}
 
 /* Risk distribution */
-.risk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:24px 0}
+.risk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:32px 0}
 .risk-item{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
   padding:20px;text-align:center;box-shadow:var(--shadow)}
 .risk-val{font-size:2em;font-weight:800}
@@ -1627,7 +1616,7 @@ th .has-tooltip{color:inherit;border-bottom-color:rgba(255,255,255,.4)}
 .grc-domain-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
 .grc-domain-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
   padding:20px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow);
-  transition:transform .2s,box-shadow .2s}
+  margin-bottom:24px;transition:transform .2s,box-shadow .2s}
 .grc-domain-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.12)}
 .grc-domain-donut{flex-shrink:0}
 .grc-domain-donut svg text{transform-origin:center}
