@@ -162,6 +162,19 @@ def grade_caa(records: List[dict], is_cloudflare: bool = True) -> dict:
 
 # ── Dangling CNAMEs ─────────────────────────────────────────────────────────
 
+def _is_resolvable(target: str) -> bool:
+    """Check if a CNAME target resolves to anything (A, AAAA, CNAME, or TXT).
+
+    CNAME chains (e.g. DKIM selectors pointing to Microsoft 365 via nested
+    CNAMEs) are valid even if the immediate target has no A/AAAA record.
+    We check multiple record types to avoid false positives.
+    """
+    for rtype in ("A", "AAAA", "CNAME", "TXT"):
+        if resolver.query(target, rtype):
+            return True
+    return False
+
+
 def _check_dangling_sync(domain: str, cname_records: List[dict]) -> dict:
     """Check for dangling CNAME records that resolve to NXDOMAIN."""
     dangling = []
@@ -176,13 +189,7 @@ def _check_dangling_sync(domain: str, cname_records: List[dict]) -> dict:
         if not target:
             continue
 
-        # Try to resolve the CNAME target
-        results = resolver.query(target, "A")
-        if not results:
-            # Also try AAAA
-            results = resolver.query(target, "AAAA")
-
-        if not results:
+        if not _is_resolvable(target):
             dangling.append({
                 "name": name,
                 "target": target,

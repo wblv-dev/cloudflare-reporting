@@ -39,33 +39,64 @@ from checks import reverse_dns
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Cloudflare DNS security audit toolkit. "
-                    "Read-only — no changes are made to any zone.",
-        epilog="Set CF_API_TOKEN as an environment variable before running.",
+        prog="audit.py",
+        description=(
+            "Cloudflare DNS security audit toolkit.\n\n"
+            "Runs 20+ read-only checks across DNS, email, TLS, registrar,\n"
+            "and infrastructure for every zone accessible to the API token.\n"
+            "Produces interactive HTML, Markdown, and CSV reports.\n\n"
+            "Checks performed:\n"
+            "  Zone security    SSL mode, min TLS, TLS 1.3, HSTS, HTTPS redirect,\n"
+            "                   security level, browser integrity, email obfuscation,\n"
+            "                   hotlink protection, opportunistic encryption\n"
+            "  Email security   SPF, DMARC, DKIM (10 selectors), MX records\n"
+            "  Email standards  MTA-STS, TLSRPT, BIMI\n"
+            "  DNS security     DNSSEC, CAA (Cloudflare CA check), dangling CNAMEs\n"
+            "  Infrastructure   Domain expiry (RDAP), transfer lock, DNSBL blacklists,\n"
+            "                   reverse DNS with forward-confirmed rDNS\n"
+            "  DNS inventory    Full record dump per zone via Cloudflare API\n"
+        ),
+        epilog=(
+            "environment variables:\n"
+            "  CF_API_TOKEN     Cloudflare API token (Zone:Read + DNS:Read)\n\n"
+            "exit codes:\n"
+            "  0                All checks passed or warned\n"
+            "  1                Configuration or runtime error\n"
+            "  2                At least one check graded FAIL\n"
+            "  130              Interrupted (Ctrl+C)\n\n"
+            "examples:\n"
+            "  %(prog)s                                  Audit all zones on the token\n"
+            "  %(prog)s --domains example.com             Audit a specific domain\n"
+            "  %(prog)s --output-dir /tmp/reports         Write reports elsewhere\n"
+            "  %(prog)s --format html csv                 Skip Markdown output\n"
+            "  %(prog)s --verbose --log-file audit.log    Full debug logging\n\n"
+            "documentation: https://github.com/wblv-dev/cloudflare-reporting"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument(
         "--domains", nargs="+", metavar="DOMAIN",
-        help="Specific domains to audit (default: auto-discover all zones on the token)",
+        help="specific domains to audit (default: auto-discover all zones)",
     )
     p.add_argument(
         "--output-dir", metavar="DIR", default=".",
-        help="Directory for output files (default: current directory)",
+        help="directory for output files (default: current directory)",
     )
     p.add_argument(
         "--format", nargs="+", choices=["html", "md", "csv"], default=["html", "md", "csv"],
-        help="Output formats (default: all three)",
+        help="output formats to generate (default: all three)",
     )
     p.add_argument(
         "--verbose", "-v", action="store_true",
-        help="Enable debug logging",
+        help="enable debug logging to stderr",
     )
     p.add_argument(
         "--log-file", metavar="FILE",
-        help="Write detailed log to file",
+        help="write detailed log to file (always verbose)",
     )
     p.add_argument(
         "--no-diff", action="store_true",
-        help="Skip comparison with previous run",
+        help="skip comparison with previous run",
     )
     return p.parse_args()
 
