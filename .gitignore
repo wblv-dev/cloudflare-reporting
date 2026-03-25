@@ -10,6 +10,7 @@ venv/
 audit_history.db
 AUDIT_REPORT.md
 audit_report.html
+audit_report.csv
 
 # Environment
 .env

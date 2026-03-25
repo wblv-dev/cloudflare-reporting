@@ -1,8 +1,9 @@
 """
 zone_security.py — Async zone security settings audit via the Cloudflare API.
 
-Checks SSL/TLS mode, minimum TLS version, HSTS, automatic HTTPS rewrites,
-TLS 1.3, and opportunistic encryption. All read-only.
+Fetches all zone settings in a single bulk API call, then grades each
+against recommended values. Checks SSL/TLS, HSTS, security level,
+bot protection, and content protection settings. All read-only.
 
 WAF managed ruleset checks require Pro+ plan and are not included here —
 the output notes this clearly where relevant.
@@ -74,37 +75,90 @@ CHECKS = [
         "values_fail": {"off"},
         "explanation":  "Redirects all HTTP requests to HTTPS.",
     },
+    {
+        "setting":     "security_level",
+        "label":       "Security level",
+        "recommended": "medium",
+        "values_pass": {"medium", "high", "under_attack"},
+        "values_warn": {"low"},
+        "values_fail": {"essentially_off", "off"},
+        "explanation": (
+            "Controls Cloudflare's challenge page sensitivity. "
+            "'Medium' or higher is recommended to filter suspicious traffic."
+        ),
+    },
+    {
+        "setting":     "browser_check",
+        "label":       "Browser Integrity Check",
+        "recommended": "on",
+        "values_pass": {"on"},
+        "values_warn": set(),
+        "values_fail": {"off"},
+        "explanation": (
+            "Evaluates HTTP headers for threats. Blocks requests with "
+            "suspicious user agents or missing headers."
+        ),
+    },
+    {
+        "setting":     "email_obfuscation",
+        "label":       "Email obfuscation",
+        "recommended": "on",
+        "values_pass": {"on"},
+        "values_warn": set(),
+        "values_fail": {"off"},
+        "explanation":  "Hides email addresses on pages from email harvesters and bots.",
+    },
+    {
+        "setting":     "hotlink_protection",
+        "label":       "Hotlink protection",
+        "recommended": "on",
+        "values_pass": {"on"},
+        "values_warn": set(),
+        "values_fail": {"off"},
+        "explanation":  "Prevents other sites from embedding your images and consuming bandwidth.",
+    },
 ]
 
 
-async def _get_setting(
+async def _get_all_settings(
     session: aiohttp.ClientSession,
     zone_id: str,
-    setting: str,
-) -> Optional[str]:
+) -> Dict[str, str]:
+    """Fetch all zone settings in a single API call and return as {id: value}."""
     try:
-        payload = await cf_get(session, f"/zones/{zone_id}/settings/{setting}")
-        return str(payload.get("result", {}).get("value", "")).lower()
+        payload = await cf_get(session, f"/zones/{zone_id}/settings")
+        results = payload.get("result", [])
+        settings = {}
+        for item in results:
+            setting_id = item.get("id", "")
+            value = item.get("value", "")
+            settings[setting_id] = value
+        return settings
     except Exception:
+        return {}
+
+
+def _extract_setting(all_settings: Dict, setting: str) -> Optional[str]:
+    """Extract and normalise a single setting value from the bulk response."""
+    value = all_settings.get(setting)
+    if value is None:
         return None
+    return str(value).lower().strip()
 
 
-async def _get_hsts(session: aiohttp.ClientSession, zone_id: str) -> dict:
-    try:
-        payload = await cf_get(session, f"/zones/{zone_id}/settings/security_header")
-        hsts    = (
-            payload.get("result", {})
-            .get("value", {})
-            .get("strict_transport_security", {})
-        )
-        return {
-            "enabled":            hsts.get("enabled", False),
-            "max_age":            hsts.get("max_age", 0),
-            "include_subdomains": hsts.get("include_subdomains", False),
-            "preload":            hsts.get("preload", False),
-        }
-    except Exception:
+def _extract_hsts(all_settings: Dict) -> dict:
+    """Extract HSTS settings from the bulk security_header value."""
+    sec_header = all_settings.get("security_header")
+    if not sec_header or not isinstance(sec_header, dict):
         return {"enabled": None, "max_age": None, "include_subdomains": None, "preload": None}
+
+    hsts = sec_header.get("strict_transport_security", {})
+    return {
+        "enabled":            hsts.get("enabled", False),
+        "max_age":            hsts.get("max_age", 0),
+        "include_subdomains": hsts.get("include_subdomains", False),
+        "preload":            hsts.get("preload", False),
+    }
 
 
 def _grade(check: dict, actual: Optional[str]) -> dict:
@@ -162,17 +216,15 @@ async def check_zone(
     domain: str,
     zone_id: str,
 ) -> dict:
-    """Run all security checks for a single zone concurrently."""
-    setting_tasks = [
-        asyncio.create_task(_get_setting(session, zone_id, c["setting"]))
-        for c in CHECKS
-    ]
-    hsts_task = asyncio.create_task(_get_hsts(session, zone_id))
+    """Run all security checks for a single zone using a single bulk API call."""
+    all_settings = await _get_all_settings(session, zone_id)
 
-    setting_values = await asyncio.gather(*setting_tasks)
-    hsts            = await hsts_task
+    results = []
+    for check in CHECKS:
+        value = _extract_setting(all_settings, check["setting"])
+        results.append(_grade(check, value))
 
-    results = [_grade(check, val) for check, val in zip(CHECKS, setting_values)]
+    hsts = _extract_hsts(all_settings)
     results.append(_grade_hsts(hsts))
 
     passed = sum(1 for r in results if r["grade"] == "PASS")

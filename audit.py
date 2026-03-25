@@ -13,6 +13,7 @@ Usage:
 Output:
     AUDIT_REPORT.md      Markdown report (Git-friendly)
     audit_report.html    HTML dashboard (open in browser)
+    audit_report.csv     CSV compliance summary (machine-readable)
     audit_history.db     SQLite history (queryable, grows each run)
 
 Token requirements: Zone:Read, DNS:Read — read-only, no changes made.
@@ -140,6 +141,17 @@ async def _run_audit():
             rdns_results       = rdns_results,
             output_path        = config.OUTPUT_HTML,
         )
+        reporter.write_csv(
+            domains            = resolved,
+            dns_results        = dns_summaries,
+            email_results      = email_results,
+            security_results   = security_results,
+            registrar_results  = registrar_results,
+            dns_sec_results    = dns_sec_results,
+            blacklist_results  = blacklist_results,
+            rdns_results       = rdns_results,
+            output_path        = config.OUTPUT_CSV,
+        )
 
     # ── 6. Summary ─────────────────────────────────────────────────────────────
     print(f"\n[6/6] Summary")
@@ -160,7 +172,7 @@ async def _run_audit():
         print(f"  {domain:<25}  zone:{passed}/{total}  SPF:{spf_g}  "
               f"DMARC:{dmarc_g}  expiry:{exp_g}  DNSSEC:{ds_g}  BL:{bl_g}")
 
-    print(f"\n  Reports: {config.OUTPUT_MD}, {config.OUTPUT_HTML}")
+    print(f"\n  Reports: {config.OUTPUT_MD}, {config.OUTPUT_HTML}, {config.OUTPUT_CSV}")
     print(f"  History: {config.DB_PATH} (run {run_id})")
     return 0
 

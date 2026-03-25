@@ -31,4 +31,5 @@ DNS_TIMEOUT  = 5.0
 
 OUTPUT_MD   = "AUDIT_REPORT.md"
 OUTPUT_HTML = "audit_report.html"
+OUTPUT_CSV  = "audit_report.csv"
 DB_PATH     = "audit_history.db"

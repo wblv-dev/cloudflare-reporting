@@ -46,12 +46,13 @@ DOMAINS = [
 ]
 ```
 
-Three files are written on each run:
+Four files are written on each run:
 
 | File | Description |
 |------|-------------|
 | `AUDIT_REPORT.md` | Markdown report — Git-friendly, human-readable |
 | `audit_report.html` | HTML dashboard — open in any browser |
+| `audit_report.csv` | CSV compliance summary — machine-readable, one row per domain |
 | `audit_history.db` | SQLite database — grows with each run |
 
 ## Configuration
@@ -74,7 +75,7 @@ To probe additional DKIM selectors for your mail provider, add them to
 | Check | What it does |
 |-------|-------------|
 | DNS inventory | Fetches all DNS records per zone via the API |
-| Zone security | Reads SSL mode, min TLS version, TLS 1.3, HSTS, HTTPS redirect, opportunistic encryption |
+| Zone security | SSL mode, min TLS, TLS 1.3, HSTS, HTTPS redirect, security level, browser integrity, email obfuscation, hotlink protection (single bulk API call) |
 
 ### Live DNS checks (no token required)
 
@@ -118,7 +119,7 @@ To probe additional DKIM selectors for your mail provider, add them to
 │   ├── database.py           #   SQLite persistence — single connection, context manager
 │   ├── dns_resolver.py       #   Live DNS lookups and grading (dnspython)
 │   └── reporter.py           #   Writes Markdown and HTML reports
-└── tests/                    # Unit tests (pytest) — 113 tests
+└── tests/                    # Unit tests (pytest) — 133 tests
 ```
 
 ## Testing
@@ -134,8 +135,8 @@ python -m pytest tests/ -v
 |-----------|--------|-------|----------------|
 | `test_dns_resolver.py` | `dns_resolver` | 11 | SPF grading (hard fail, soft fail, +all, neutral, missing, incomplete), DMARC grading (reject, quarantine, none, missing, unknown policy) |
 | `test_dns_inventory.py` | `dns_inventory` | 4 | `summarise()` — empty input, type counting, proxied counting, simplified record shape, sorted by_type keys |
-| `test_zone_security.py` | `zone_security` | 13 | SSL mode grading (full/strict/flexible/off), min TLS version, TLS 1.3, Always HTTPS, unavailable settings, HSTS (disabled/enabled/low max-age/unavailable) |
-| `test_reporter.py` | `reporter` | 9 | `_worst()` grade ordering, `_sym()` symbol mapping, `_truncate()` string truncation, `_badge()` HTML badge generation |
+| `test_zone_security.py` | `zone_security` | 26 | SSL mode grading (full/strict/flexible/off), min TLS version, TLS 1.3, Always HTTPS, security level (medium/high/under_attack/low/off), browser integrity check, email obfuscation, hotlink protection, unavailable settings, HSTS (disabled/enabled/low max-age/unavailable), bulk settings extraction and HSTS extraction |
+| `test_reporter.py` | `reporter` | 11 | `_worst()` grade ordering, `_sym()` symbol mapping, `_truncate()` string truncation, `_badge()` HTML badge generation, CSV output (single domain, multiple domains) |
 | `test_database.py` | `database` | 7 | Run creation, ID incrementing, DNS record save/get, email check save/get, zone settings save/get, run listing, rollback on error |
 | `test_database_new.py` | `database` | 5 | Registrar check save/get, DNS security save/get, blacklist check save/get (clean + listed), reverse DNS save/get |
 | `test_registrar.py` | `registrar` | 20 | Expiry grading (expired, critical, warn, pass, boundary cases), lock grading (locked/unlocked/server-locked/empty), RDAP parsing (expiry events, statuses, nameservers, registrar vCard/handle) |

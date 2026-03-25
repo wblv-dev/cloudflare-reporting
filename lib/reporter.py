@@ -1,10 +1,12 @@
 """
-reporter.py — Report writer. Produces both Markdown and HTML output.
+reporter.py — Report writer. Produces Markdown, HTML, and CSV output.
 
 Markdown: human-readable, Git-friendly, good for the repo sample.
 HTML:     visual dashboard, self-contained single file.
+CSV:      machine-readable compliance summary, one row per domain.
 """
 
+import csv
 from datetime import datetime, timezone
 from typing import Dict, List
 
@@ -319,6 +321,71 @@ def _md_security(domain: str, result: dict) -> str:
                 lines.append(f"- **{r['label']}** ({_sym(r['grade'])}): {r['explanation']}")
 
     return "\n".join(lines) + "\n\n"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CSV
+# ══════════════════════════════════════════════════════════════════════════════
+
+def write_csv(
+    domains: List[str],
+    dns_results: Dict[str, dict],
+    email_results: Dict[str, dict],
+    security_results: Dict[str, dict],
+    registrar_results: Dict[str, dict],
+    dns_sec_results: Dict[str, dict],
+    blacklist_results: Dict[str, dict],
+    rdns_results: Dict[str, dict],
+    output_path: str,
+) -> None:
+    """Write a CSV compliance summary — one row per domain."""
+    fieldnames = [
+        "Domain", "DNS Records",
+        "SPF", "DMARC", "DKIM Selectors",
+        "Zone Security", "Zone Pass", "Zone Total",
+        "Registrar", "Expiry", "Expiry Days", "Transfer Lock",
+        "DNSSEC", "CAA", "Dangling CNAMEs",
+        "Blacklist", "Reverse DNS",
+    ]
+
+    rows = []
+    for d in domains:
+        dns = dns_results.get(d, {})
+        email = email_results.get(d, {})
+        sec = security_results.get(d, {})
+        reg = registrar_results.get(d, {})
+        ds = dns_sec_results.get(d, {})
+        bl = blacklist_results.get(d, {})
+        rdns = rdns_results.get(d, {})
+
+        passed, total = sec.get("score", (0, 0))
+
+        rows.append({
+            "Domain":          d,
+            "DNS Records":     dns.get("total", 0),
+            "SPF":             email.get("spf", {}).get("grade", ""),
+            "DMARC":           email.get("dmarc", {}).get("grade", ""),
+            "DKIM Selectors":  len(email.get("dkim", [])),
+            "Zone Security":   _worst([r["grade"] for r in sec.get("results", [])]) if sec.get("results") else "",
+            "Zone Pass":       passed,
+            "Zone Total":      total,
+            "Registrar":       reg.get("registrar", ""),
+            "Expiry":          reg.get("expiry", {}).get("grade", ""),
+            "Expiry Days":     reg.get("expiry", {}).get("days_remaining", ""),
+            "Transfer Lock":   reg.get("lock", {}).get("grade", ""),
+            "DNSSEC":          ds.get("dnssec", {}).get("grade", ""),
+            "CAA":             ds.get("caa", {}).get("grade", ""),
+            "Dangling CNAMEs": len(ds.get("dangling", {}).get("dangling", [])),
+            "Blacklist":       bl.get("grade", ""),
+            "Reverse DNS":     rdns.get("grade", ""),
+        })
+
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"  CSV report      → {output_path}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
