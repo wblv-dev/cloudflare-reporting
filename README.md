@@ -1,61 +1,66 @@
-# cloudflare-reporting
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/cloudflare-free%20plan-f38020?logo=cloudflare&logoColor=white" alt="Cloudflare Free Plan">
+  <img src="https://img.shields.io/badge/tests-163%20passing-brightgreen" alt="163 tests passing">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
+  <img src="https://img.shields.io/badge/read--only-no%20changes%20made-informational" alt="Read-only">
+</p>
 
-A read-only Cloudflare DNS audit toolkit. Queries the Cloudflare API and performs
-live DNS lookups to produce both a Markdown report and an HTML dashboard covering:
+# Cloudflare Reporting
 
-- **DNS inventory** — every record across all zones accessible to the token
-- **Email security** — live MX, SPF, DMARC, and DKIM validation with grades
-- **Zone security** — SSL mode, TLS version, HSTS, HTTPS redirect settings
-- **Registrar status** — domain expiry, transfer lock, nameservers via RDAP
-- **DNSSEC** — DNSKEY and DS record validation
-- **CAA records** — Certificate Authority Authorization with Cloudflare compatibility check
-- **Dangling CNAMEs** — subdomain takeover risk detection
-- **Blacklist (DNSBL)** — mail server IP reputation against major DNS blacklists
-- **Reverse DNS** — PTR record validation with forward-confirmed rDNS (FCrDNS)
-- **Audit history** — every run persisted to SQLite, queryable over time
+A read-only security audit toolkit for Cloudflare. Auto-discovers all zones on an API token, runs 20+ checks across DNS, email, TLS, registrar, and infrastructure, and produces interactive HTML, Markdown, and CSV reports.
 
-All checks are read-only. No changes are made to any zone.
+Works on **Cloudflare Free plan**. No changes are made to any zone.
 
-## Requirements
+## Example output
 
-- Git ([download](https://git-scm.com/downloads))
-- Python 3.10+ ([download](https://www.python.org/downloads/))
-- Cloudflare API token with `Zone:Read` and `DNS:Read` scopes
+```
+[1/6] Discovering all zones on this API token ...
+       Found 2 zone(s): example.com, example.org
 
-### Installing Git
+[2/6] Fetching DNS inventory and zone settings ...
+  [DNS] example.com: 19 record(s) fetched
+  [SECURITY] example.com: 8/11 checks passed
 
-| Platform | Method |
-|----------|--------|
-| **macOS** | `brew install git` or `xcode-select --install` (includes Git) |
-| **Ubuntu/Debian** | `sudo apt install git` |
-| **Windows** | Download from [git-scm.com](https://git-scm.com/downloads/win) — use the default options during install. **Close and reopen PowerShell** after installing so it picks up the new PATH. |
+[3/6] Running live DNS checks ...
+  [DNSSEC] example.com: PASS
+  [CAA] example.com: PASS
+  [DANGLING] example.com: PASS
+  [EMAIL] example.com: SPF=PASS  DMARC=PASS
+  [BLACKLIST] example.com: PASS
+  [rDNS] example.com: PASS
 
-Verify with `git --version`.
+[4/6] Saving results to audit_history.db ...
+[5/6] Writing reports ...
+[6/6] Summary
+============================================================
+  example.com          zone:8/11  SPF:PASS  DMARC:PASS  DNSSEC:PASS  BL:PASS
+```
 
-### Installing Python
+The HTML report includes tabbed navigation, dark mode, domain search/filter, sortable tables, and interactive progress rings:
 
-| Platform | Method |
-|----------|--------|
-| **macOS** | `brew install python` ([Homebrew](https://brew.sh/)) or download from [python.org](https://www.python.org/downloads/macos/) |
-| **Ubuntu/Debian** | `sudo apt install python3 python3-pip python3-venv` |
-| **Windows** | Search **"Python"** in the Microsoft Store and install (recommended — handles PATH automatically), or `winget install Python.Python.3.12`, or download from [python.org](https://www.python.org/downloads/windows/) (tick **"Add python.exe to PATH"**). Reopen PowerShell if needed. |
+| Grade | Meaning |
+|-------|---------|
+| **PASS** | Meets recommended configuration |
+| **WARN** | Functional but not optimal (e.g. SPF `~all` instead of `-all`) |
+| **FAIL** | Missing or insecure (e.g. no DMARC record, TLS 1.0 enabled) |
+| **INFO** | Neutral finding or setting not available on current plan |
 
-Verify with `python3 --version` (or `python --version` on Windows).
+---
 
-### Creating a Cloudflare API token
+## Quick start
 
-1. Log in to the [Cloudflare dashboard](https://dash.cloudflare.com/)
-2. Go to **My Profile** → **API Tokens** → **Create Token**
-3. Use the **Custom token** template
-4. Set permissions: **Zone** → **Zone** → **Read** and **Zone** → **DNS** → **Read**
-5. Zone resources: **Include** → **All zones** (or select specific zones)
-6. Create the token and copy it
+### 1. Prerequisites
 
-See [Cloudflare API token docs](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/) for full details.
+| Tool | Install |
+|------|---------|
+| **Git** | [git-scm.com](https://git-scm.com/downloads) — on Windows, reopen PowerShell after installing |
+| **Python 3.10+** | **Windows:** search "Python" in the Microsoft Store (recommended) or `winget install Python.Python.3.12`<br>**macOS:** `brew install python` or [python.org](https://www.python.org/downloads/macos/)<br>**Linux:** `sudo apt install python3 python3-pip python3-venv` |
 
-## Setup
+### 2. Clone and install
 
-### macOS / Linux
+<details>
+<summary><strong>macOS / Linux</strong></summary>
 
 ```bash
 git clone https://github.com/wblv-dev/cloudflare-reporting
@@ -63,10 +68,11 @@ cd cloudflare-reporting
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-export CF_API_TOKEN="your_token_here"
 ```
+</details>
 
-### Windows (PowerShell)
+<details>
+<summary><strong>Windows (PowerShell)</strong></summary>
 
 ```powershell
 git clone https://github.com/wblv-dev/cloudflare-reporting
@@ -74,188 +80,282 @@ cd cloudflare-reporting
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-$env:CF_API_TOKEN="your_token_here"
 ```
 
-> **Note:** If PowerShell blocks the activate script, run
-> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
+> If PowerShell blocks the activate script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
+</details>
 
-## Usage
+### 3. Create a Cloudflare API token
+
+1. Log in to the [Cloudflare dashboard](https://dash.cloudflare.com/)
+2. Go to **My Profile** → **API Tokens** → **Create Token**
+3. Choose **Custom token** and set:
+   - **Permissions:** Zone → Zone → Read, Zone → DNS → Read
+   - **Zone resources:** Include → All zones
+4. Copy the token
+
+> Full guide: [Cloudflare API token docs](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
+
+### 4. Run the audit
 
 ```bash
-python3 audit.py          # macOS / Linux
-python audit.py           # Windows
+# macOS / Linux
+export CF_API_TOKEN="your_token_here"
+python3 audit.py
+
+# Windows (PowerShell)
+$env:CF_API_TOKEN="your_token_here"
+python audit.py
 ```
 
-By default the tool **auto-discovers every zone** accessible to the API token.
-To restrict to specific domains, set them in `config.py`:
+Four output files are generated:
+
+| File | Format | Description |
+|------|--------|-------------|
+| `audit_report.html` | HTML | Interactive dashboard with tabs, search, dark mode |
+| `AUDIT_REPORT.md` | Markdown | Git-friendly, human-readable |
+| `audit_report.csv` | CSV | One row per domain — for spreadsheets or automation |
+| `audit_history.db` | SQLite | Cumulative history across runs |
+
+---
+
+## What it checks
+
+### Cloudflare API (requires token)
+
+Uses a single bulk `GET /zones/{id}/settings` call per zone:
+
+| Check | Recommended | Grades |
+|-------|-------------|--------|
+| SSL mode | `full (strict)` | `off` = FAIL, `flexible` = WARN |
+| Minimum TLS version | `1.2` | `1.0` = FAIL, `1.1` = WARN |
+| TLS 1.3 | `on` | `off` = FAIL |
+| Always Use HTTPS | `on` | `off` = FAIL |
+| Automatic HTTPS Rewrites | `on` | `off` = FAIL |
+| HSTS | enabled, max-age >= 1 year | disabled = WARN, low max-age = WARN |
+| Security Level | `medium`+ | `off` = FAIL, `low` = WARN |
+| Browser Integrity Check | `on` | `off` = FAIL |
+| Email Obfuscation | `on` | `off` = FAIL |
+| Hotlink Protection | `on` | `off` = FAIL |
+| Opportunistic Encryption | `on` | `off` = FAIL |
+
+### Live DNS (no token needed)
+
+| Check | Method | What it catches |
+|-------|--------|-----------------|
+| SPF | TXT lookup at domain | Missing record, `+all`, soft fail vs hard fail |
+| DMARC | TXT lookup at `_dmarc.` | Missing record, `p=none` vs `p=reject` |
+| DKIM | TXT lookup at 10 common selectors | Missing selectors for Google, Microsoft 365, ProtonMail, etc. |
+| DNSSEC | DNSKEY + DS record queries | Enabled in Cloudflare but DS not added at registrar |
+| CAA | CAA record lookup | Missing records, incompatible CAs for Cloudflare |
+| Dangling CNAMEs | Resolve all CNAME targets | Subdomain takeover risk (target returns NXDOMAIN) |
+| Blacklist (DNSBL) | Reverse lookup against 6 lists | Mail server IPs on Spamhaus, SpamCop, Barracuda, etc. |
+| Reverse DNS | PTR + forward confirmation | Missing PTR records on mail servers |
+
+### Registrar (via RDAP)
+
+| Check | Thresholds |
+|-------|-----------|
+| Domain expiry | FAIL < 30 days, WARN < 90 days |
+| Transfer lock | WARN if `clientTransferProhibited` missing |
+
+---
+
+## How it works
+
+The audit runs in 6 stages:
+
+```
+1. Zone discovery      Finds all zones on the API token (or uses config list)
+2. API checks          Fetches DNS records + zone settings via Cloudflare API
+3. Live DNS checks     SPF, DMARC, DKIM, DNSSEC, CAA, dangling CNAMEs,
+                       blacklists, reverse DNS — all via dnspython
+4. Persist             Saves everything to SQLite (audit_history.db)
+5. Report              Generates HTML, Markdown, and CSV
+6. Summary             Prints grade summary to terminal
+```
+
+All API and DNS checks run concurrently using `asyncio` — a 50-zone account typically completes in under 30 seconds.
+
+### Code structure
+
+```
+cloudflare-reporting/
+├── audit.py                  # Entry point — async orchestrator
+├── config.py                 # Domains, token, output paths
+├── requirements.txt          # aiohttp, dnspython
+│
+├── checks/                   # One module per check category
+│   ├── blacklist.py          #   DNSBL checks for mail server IPs
+│   ├── dns_inventory.py      #   DNS record fetching via Cloudflare API
+│   ├── dns_security.py       #   DNSSEC, CAA, dangling CNAME detection
+│   ├── email_security.py     #   MX, SPF, DMARC, DKIM validation
+│   ├── registrar.py          #   Domain expiry + lock via RDAP
+│   ├── reverse_dns.py        #   PTR / forward-confirmed rDNS
+│   └── zone_security.py      #   TLS, HSTS, security settings (bulk API)
+│
+├── lib/                      # Shared infrastructure
+│   ├── cf_client.py          #   Async Cloudflare API client + retry/backoff
+│   ├── database.py           #   SQLite persistence layer
+│   ├── dns_resolver.py       #   dnspython wrapper + grading functions
+│   └── reporter.py           #   HTML, Markdown, and CSV report generation
+│
+└── tests/                    # 163 tests (pytest)
+    ├── test_blacklist.py
+    ├── test_database.py
+    ├── test_database_new.py
+    ├── test_dns_inventory.py
+    ├── test_dns_resolver.py
+    ├── test_dns_security.py
+    ├── test_registrar.py
+    ├── test_reporter.py
+    ├── test_reverse_dns.py
+    ├── test_security.py      # Security/pentest tests (XSS, SQLi, credential leak)
+    └── test_zone_security.py
+```
+
+### Key code excerpts
+
+**Grading a setting** (`checks/zone_security.py`):
 
 ```python
-DOMAINS = [
-    "yourdomain.com",
-    "anotherdomain.org",
+CHECKS = [
+    {
+        "setting":     "ssl",
+        "label":       "SSL mode",
+        "recommended": "full (strict)",
+        "values_pass": {"full", "strict"},
+        "values_warn": {"flexible"},
+        "values_fail": {"off"},
+    },
+    # ... 10 more checks
 ]
 ```
 
-Four files are written on each run:
+Each check is a declarative dict — add new checks by appending to the list.
 
-| File | Description |
-|------|-------------|
-| `AUDIT_REPORT.md` | Markdown report — Git-friendly, human-readable |
-| `audit_report.html` | HTML dashboard — open in any browser |
-| `audit_report.csv` | CSV compliance summary — machine-readable, one row per domain |
-| `audit_history.db` | SQLite database — grows with each run |
+**Dangling CNAME detection** (`checks/dns_security.py`):
+
+```python
+for record in cname_records:
+    target = record.get("content", "").rstrip(".")
+    results = resolver.query(target, "A")
+    if not results:
+        results = resolver.query(target, "AAAA")
+    if not results:
+        dangling.append({"name": record["name"], "target": target})
+```
+
+**DNSBL lookup** (`checks/blacklist.py`):
+
+```python
+# To check if 1.2.3.4 is listed on zen.spamhaus.org:
+# Reverse the IP → 4.3.2.1.zen.spamhaus.org → DNS A lookup
+# Response = listed, NXDOMAIN = clean
+reversed_ip = _reverse_ip(ip)         # "1.2.3.4" → "4.3.2.1"
+lookup = f"{reversed_ip}.{bl['host']}" # "4.3.2.1.zen.spamhaus.org"
+results = resolver.query(lookup, "A")  # Listed if response exists
+```
+
+---
 
 ## Configuration
 
-Edit `config.py` to customise behaviour:
+Edit `config.py`:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `DOMAINS` | `[]` (auto-discover) | Leave empty to audit all zones, or list specific domains |
-| `DNS_RESOLVER` | `1.1.1.1` | Public resolver for live DNS validation |
+| `DOMAINS` | `[]` | Empty = auto-discover all zones. Set specific domains to restrict. |
+| `DNS_RESOLVER` | `1.1.1.1` | Public resolver for live DNS checks |
 | `CF_TIMEOUT` | `30` | Cloudflare API timeout in seconds |
 
-To probe additional DKIM selectors for your mail provider, add them to
-`DKIM_SELECTORS` in `email_security.py`.
+Custom DKIM selectors can be added in `checks/email_security.py` → `DKIM_SELECTORS`.
 
-## Checks
+---
 
-### Cloudflare API checks (require token)
+## Querying audit history
 
-| Check | What it does |
-|-------|-------------|
-| DNS inventory | Fetches all DNS records per zone via the API |
-| Zone security | SSL mode, min TLS, TLS 1.3, HSTS, HTTPS redirect, security level, browser integrity, email obfuscation, hotlink protection (single bulk API call) |
+Every run is persisted to SQLite. Query directly:
 
-### Live DNS checks (no token required)
+```sql
+-- All audit runs
+SELECT id, started_at, domains FROM runs;
 
-| Check | What it does |
-|-------|-------------|
-| SPF | Validates `v=spf1` TXT record and grades the `all` mechanism |
-| DMARC | Validates `_dmarc` TXT record and grades the policy (`reject`/`quarantine`/`none`) |
-| DKIM | Probes 10 common selectors (`google`, `selector1`, `protonmail`, etc.) |
-| MX | Lists mail exchangers and detects null MX (RFC 7505) |
-| DNSSEC | Queries DNSKEY at the zone and DS at the parent to verify the chain of trust |
-| CAA | Reads CAA records and checks Cloudflare CA compatibility (`letsencrypt.org`, `digicert.com`, `pki.goog`, etc.) |
-| Dangling CNAMEs | Resolves all CNAME targets and flags any returning NXDOMAIN (subdomain takeover risk) |
-| Blacklist (DNSBL) | Resolves MX to IPs, checks against 6 major blacklists (Spamhaus, SpamCop, Barracuda, etc.) |
-| Reverse DNS | PTR lookup for mail server IPs with forward-confirmed rDNS validation |
+-- DMARC grade trend for a domain
+SELECT r.started_at, e.dmarc_grade
+FROM email_checks e JOIN runs r ON r.id = e.run_id
+WHERE e.domain = 'example.com' ORDER BY r.id DESC;
 
-### Registrar checks (via RDAP)
+-- All FAIL results across runs
+SELECT r.started_at, zs.domain, zs.label, zs.actual
+FROM zone_settings zs JOIN runs r ON r.id = zs.run_id
+WHERE zs.grade = 'FAIL' ORDER BY r.id DESC;
 
-| Check | What it does |
-|-------|-------------|
-| Domain expiry | FAIL if <30 days, WARN if <90 days, PASS if >90 days |
-| Transfer lock | Checks for `clientTransferProhibited` status |
-| Nameservers | Lists nameservers from RDAP registration data |
-| Registrar | Identifies the current registrar |
-
-## Structure
-
+-- Domain expiry tracking
+SELECT r.started_at, rc.domain, rc.expiry_days, rc.expiry_grade
+FROM registrar_checks rc JOIN runs r ON r.id = rc.run_id
+ORDER BY r.id DESC;
 ```
-├── audit.py                  # Entry point — async orchestrator
-├── config.py                 # Domains, token, output paths
-├── requirements.txt
-├── checks/                   # Audit check modules
-│   ├── blacklist.py          #   DNSBL checks for mail server IPs
-│   ├── dns_inventory.py      #   Fetches and summarises all DNS records via API
-│   ├── dns_security.py       #   DNSSEC, CAA, and dangling CNAME checks
-│   ├── email_security.py     #   MX / SPF / DMARC / DKIM checks (async)
-│   ├── registrar.py          #   Domain registration checks via RDAP
-│   ├── reverse_dns.py        #   PTR / rDNS validation for mail servers
-│   └── zone_security.py      #   SSL, TLS, HSTS and security settings (async)
-├── lib/                      # Shared infrastructure
-│   ├── cf_client.py          #   Async aiohttp Cloudflare API client with retry/backoff
-│   ├── database.py           #   SQLite persistence — single connection, context manager
-│   ├── dns_resolver.py       #   Live DNS lookups and grading (dnspython)
-│   └── reporter.py           #   Writes Markdown and HTML reports
-└── tests/                    # Unit tests (pytest) — 133 tests
-```
+
+---
 
 ## Testing
 
 ```bash
 pip install pytest
-python3 -m pytest tests/ -v
+python3 -m pytest tests/ -v         # macOS / Linux
+python -m pytest tests/ -v          # Windows
 ```
 
-### Test coverage
+163 tests across 11 test files covering grading logic, database persistence, report generation, and security:
 
-| Test file | Module | Tests | What's covered |
-|-----------|--------|-------|----------------|
-| `test_dns_resolver.py` | `dns_resolver` | 11 | SPF grading (hard fail, soft fail, +all, neutral, missing, incomplete), DMARC grading (reject, quarantine, none, missing, unknown policy) |
-| `test_dns_inventory.py` | `dns_inventory` | 4 | `summarise()` — empty input, type counting, proxied counting, simplified record shape, sorted by_type keys |
-| `test_zone_security.py` | `zone_security` | 26 | SSL mode grading (full/strict/flexible/off), min TLS version, TLS 1.3, Always HTTPS, security level (medium/high/under_attack/low/off), browser integrity check, email obfuscation, hotlink protection, unavailable settings, HSTS (disabled/enabled/low max-age/unavailable), bulk settings extraction and HSTS extraction |
-| `test_reporter.py` | `reporter` | 11 | `_worst()` grade ordering, `_sym()` symbol mapping, `_truncate()` string truncation, `_badge()` HTML badge generation, CSV output (single domain, multiple domains) |
-| `test_database.py` | `database` | 7 | Run creation, ID incrementing, DNS record save/get, email check save/get, zone settings save/get, run listing, rollback on error |
-| `test_database_new.py` | `database` | 5 | Registrar check save/get, DNS security save/get, blacklist check save/get (clean + listed), reverse DNS save/get |
-| `test_registrar.py` | `registrar` | 20 | Expiry grading (expired, critical, warn, pass, boundary cases), lock grading (locked/unlocked/server-locked/empty), RDAP parsing (expiry events, statuses, nameservers, registrar vCard/handle) |
-| `test_dns_security.py` | `dns_security` | 15 | DNSSEC grading (full/partial/none/DS-without-DNSKEY), CAA grading (no records, CF-compatible CAs, incompatible CAs, issuewild, non-CF mode), dangling CNAME grading (none, one, many with truncation) |
-| `test_blacklist.py` | `blacklist` | 16 | IP reversal, cloud mail detection (Google/Microsoft/Mimecast/self-hosted), blacklist grading (cloud-only, clean, major listing, minor listing, mixed severity, empty, multi-IP) |
-| `test_reverse_dns.py` | `reverse_dns` | 7 | PTR grading — no MX, all confirmed, missing PTR, mismatch, mixed missing+confirmed, mixed mismatch+confirmed, multiple missing |
+| Suite | Tests | Covers |
+|-------|-------|--------|
+| `test_security.py` | 30 | XSS injection, SQL injection, credential leakage, input validation, DoS, config security |
+| `test_zone_security.py` | 26 | All 11 zone settings + HSTS + bulk extraction |
+| `test_registrar.py` | 20 | Expiry/lock grading, RDAP parsing |
+| `test_blacklist.py` | 16 | IP reversal, cloud detection, DNSBL grading |
+| `test_dns_security.py` | 15 | DNSSEC, CAA, dangling CNAME grading |
+| `test_dns_resolver.py` | 11 | SPF + DMARC grading |
+| `test_reporter.py` | 11 | Grade helpers, badge generation, CSV output |
+| `test_database.py` | 7 | Core CRUD + rollback |
+| `test_reverse_dns.py` | 7 | PTR grading |
+| `test_database_new.py` | 5 | Registrar, DNS security, blacklist, rDNS persistence |
+| `test_dns_inventory.py` | 4 | Record summarisation |
 
-## Grading
+---
 
-| Grade | Meaning |
-|-------|---------|
-| ✅ PASS | Meets recommended configuration |
-| ⚠️ WARN | Functional but not optimal (e.g. SPF `~all` vs `-all`) |
-| ❌ FAIL | Missing or insecure (e.g. no DMARC, TLS 1.0 enabled) |
-| ℹ️ INFO | Neutral finding or setting unavailable on Free plan |
+## Security
 
-## Querying audit history
+- **Read-only** — the tool never writes to Cloudflare. Token only needs `Zone:Read` + `DNS:Read`.
+- **No credential leakage** — RDAP calls use their own unauthenticated HTTP sessions. The Cloudflare API token is never sent to third parties.
+- **XSS-safe reports** — all user-controlled data (domain names, DNS records, etc.) is HTML-escaped in report output.
+- **Parameterised queries** — all SQLite operations use parameterised statements. No string interpolation in SQL.
+- **Security test suite** — 30 dedicated tests covering XSS, SQL injection, credential leakage, input validation, and denial of service.
 
-```bash
-sqlite3 audit_history.db
-
--- All runs
-SELECT id, started_at, domains FROM runs;
-
--- DMARC grade over time for a domain
-SELECT r.started_at, e.dmarc_grade
-FROM email_checks e JOIN runs r ON r.id = e.run_id
-WHERE e.domain = 'yourdomain.com'
-ORDER BY r.id DESC;
-
--- Security check failures across all runs
-SELECT r.started_at, zs.domain, zs.label, zs.actual
-FROM zone_settings zs JOIN runs r ON r.id = zs.run_id
-WHERE zs.grade = 'FAIL'
-ORDER BY r.id DESC;
-
--- Domain expiry trend
-SELECT r.started_at, rc.domain, rc.expiry_days, rc.expiry_grade
-FROM registrar_checks rc JOIN runs r ON r.id = rc.run_id
-ORDER BY r.id DESC;
-
--- Blacklist history
-SELECT r.started_at, bc.domain, bc.grade, bc.reason
-FROM blacklist_checks bc JOIN runs r ON r.id = bc.run_id
-ORDER BY r.id DESC;
-```
+---
 
 ## Notes
 
 - WAF managed ruleset checks require Cloudflare Pro or above and are not included.
-- DKIM probes common selectors. Add your provider's selector to `email_security.py`
-  if it isn't in the default list.
-- Concurrent API requests via `asyncio` and `aiohttp` — fast even on large accounts.
-- RDAP is used for registrar checks (no API key required). Some ccTLDs may not support RDAP.
-- Blacklist checks skip cloud mail provider IPs (Google, Microsoft, etc.) as they
-  are managed by the provider and not actionable.
+- DKIM probes 10 common selectors. Add your provider's selector to `DKIM_SELECTORS` if needed.
+- RDAP is used for registrar checks (no API key required). Some ccTLDs may have limited RDAP support.
+- Blacklist checks skip cloud mail provider IPs (Google, Microsoft, etc.) as they are managed by the provider.
+- Concurrent requests via `asyncio` and `aiohttp` — fast even on large accounts.
 
 ## References
 
-- [Python downloads](https://www.python.org/downloads/)
-- [pip documentation](https://pip.pypa.io/en/stable/installation/)
-- [Cloudflare API documentation](https://developers.cloudflare.com/api/)
-- [Creating a Cloudflare API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
-- [Cloudflare SSL/TLS settings](https://developers.cloudflare.com/ssl/)
-- [SPF record syntax](https://www.rfc-editor.org/rfc/rfc7208) (RFC 7208)
-- [DMARC specification](https://www.rfc-editor.org/rfc/rfc7489) (RFC 7489)
-- [DKIM specification](https://www.rfc-editor.org/rfc/rfc6376) (RFC 6376)
-- [CAA record format](https://www.rfc-editor.org/rfc/rfc8659) (RFC 8659)
-- [DNSSEC overview](https://www.cloudflare.com/dns/dnssec/how-dnssec-works/)
-- [RDAP (Registration Data Access Protocol)](https://about.rdap.org/)
-- [DNS-based blacklists (DNSBL)](https://www.spamhaus.org/faq/section/DNSBL%20Usage)
+| Topic | Link |
+|-------|------|
+| Cloudflare API | [developers.cloudflare.com/api](https://developers.cloudflare.com/api/) |
+| Creating API tokens | [Cloudflare token docs](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/) |
+| SSL/TLS settings | [Cloudflare SSL docs](https://developers.cloudflare.com/ssl/) |
+| SPF (RFC 7208) | [rfc-editor.org/rfc/rfc7208](https://www.rfc-editor.org/rfc/rfc7208) |
+| DMARC (RFC 7489) | [rfc-editor.org/rfc/rfc7489](https://www.rfc-editor.org/rfc/rfc7489) |
+| DKIM (RFC 6376) | [rfc-editor.org/rfc/rfc6376](https://www.rfc-editor.org/rfc/rfc6376) |
+| CAA (RFC 8659) | [rfc-editor.org/rfc/rfc8659](https://www.rfc-editor.org/rfc/rfc8659) |
+| DNSSEC | [cloudflare.com/dns/dnssec](https://www.cloudflare.com/dns/dnssec/how-dnssec-works/) |
+| RDAP | [about.rdap.org](https://about.rdap.org/) |
+| DNSBL | [spamhaus.org/faq](https://www.spamhaus.org/faq/section/DNSBL%20Usage) |
+| Python | [python.org/downloads](https://www.python.org/downloads/) |
+| Git | [git-scm.com/downloads](https://git-scm.com/downloads) |
