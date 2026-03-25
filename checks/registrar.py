@@ -28,14 +28,21 @@ EXPIRY_FAIL_DAYS = 30
 EXPIRY_WARN_DAYS = 90
 
 
-async def _fetch_rdap(session: aiohttp.ClientSession, domain: str) -> Optional[dict]:
-    """Fetch RDAP data for a domain. Returns parsed JSON or None on failure."""
+async def _fetch_rdap(domain: str) -> Optional[dict]:
+    """
+    Fetch RDAP data for a domain using a dedicated session.
+
+    IMPORTANT: Uses its own aiohttp session with NO auth headers.
+    The Cloudflare session must never be reused here — it carries
+    the CF API token which would be leaked to rdap.org.
+    """
     url = f"{RDAP_BOOTSTRAP}/{domain}"
     try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
-            if r.status != 200:
-                return None
-            return await r.json(content_type=None)
+        async with aiohttp.ClientSession() as rdap_session:
+            async with rdap_session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
+                if r.status != 200:
+                    return None
+                return await r.json(content_type=None)
     except Exception:
         return None
 
@@ -55,7 +62,7 @@ def _parse_expiry(rdap: dict) -> Optional[datetime]:
 
 def _parse_statuses(rdap: dict) -> List[str]:
     """Extract domain status codes from RDAP."""
-    return [s.lower().strip() for s in rdap.get("status", [])]
+    return [str(s).lower().strip() for s in rdap.get("status", []) if s is not None]
 
 
 def _parse_nameservers(rdap: dict) -> List[str]:
@@ -136,9 +143,9 @@ def grade_lock(statuses: List[str]) -> dict:
         }
 
 
-async def check_domain(session: aiohttp.ClientSession, domain: str) -> dict:
+async def check_domain(domain: str) -> dict:
     """Run all registrar checks for a single domain."""
-    rdap = await _fetch_rdap(session, domain)
+    rdap = await _fetch_rdap(domain)
 
     if rdap is None:
         return {
@@ -174,13 +181,14 @@ async def check_domain(session: aiohttp.ClientSession, domain: str) -> dict:
     return result
 
 
-async def check_all(
-    session: aiohttp.ClientSession,
-    domains: List[str],
-) -> Dict[str, dict]:
-    """Run registrar checks for all domains concurrently."""
+async def check_all(domains: List[str]) -> Dict[str, dict]:
+    """Run registrar checks for all domains concurrently.
+
+    Note: Does NOT accept a Cloudflare session. RDAP calls use their
+    own unauthenticated sessions to avoid leaking the CF API token.
+    """
     tasks = {
-        domain: asyncio.create_task(check_domain(session, domain))
+        domain: asyncio.create_task(check_domain(domain))
         for domain in domains
     }
     results = {}

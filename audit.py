@@ -67,7 +67,7 @@ async def _run_audit():
         print(f"\n[2/6] Fetching DNS inventory and zone settings ...")
         dns_task      = asyncio.create_task(dns_inventory.fetch_all(session, zone_ids))
         security_task = asyncio.create_task(zone_security.check_all(session, zone_ids))
-        registrar_task = asyncio.create_task(registrar.check_all(session, resolved))
+        registrar_task = asyncio.create_task(registrar.check_all(resolved))
 
         raw_dns, security_results, registrar_results = await asyncio.gather(
             dns_task, security_task, registrar_task

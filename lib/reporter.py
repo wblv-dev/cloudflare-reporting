@@ -7,6 +7,7 @@ CSV:      machine-readable compliance summary, one row per domain.
 """
 
 import csv
+import html
 from datetime import datetime, timezone
 from typing import Dict, List
 
@@ -32,6 +33,8 @@ GRADE_CLASS = {
 
 
 def _worst(grades: List[str]) -> str:
+    if not grades:
+        return "INFO"
     return min(grades, key=lambda g: _GRADE_ORDER.get(g, 99))
 
 
@@ -454,10 +457,17 @@ def write_html(
     print(f"  HTML report     → {output_path}")
 
 
+def _esc(s) -> str:
+    """HTML-escape untrusted content to prevent XSS."""
+    if s is None:
+        return ""
+    return html.escape(str(s))
+
+
 def _badge(grade: str, text: str = None) -> str:
     cls  = GRADE_CLASS.get(grade, "badge-info")
     label = text or grade
-    return f'<span class="badge {cls}">{label}</span>'
+    return f'<span class="badge {cls}">{_esc(label)}</span>'
 
 
 def _html_head() -> str:
@@ -627,7 +637,7 @@ code{font-family:'SF Mono',Monaco,Consolas,monospace;background:var(--code-bg);
 
 
 def _html_header(domains: List[str]) -> str:
-    domain_list = ", ".join(f"<code>{d}</code>" for d in domains)
+    domain_list = ", ".join(f"<code>{_esc(d)}</code>" for d in domains)
     return f"""
 <div class="header">
   <div class="header-inner">
@@ -815,9 +825,9 @@ def _html_overview_domain_cards(
             sec_rows = ""
             for r in sec["results"]:
                 sec_rows += (
-                    f'<tr><td>{r["label"]}</td>'
-                    f'<td><code>{r.get("recommended", "—")}</code></td>'
-                    f'<td><code>{r.get("actual", "—")}</code></td>'
+                    f'<tr><td>{_esc(r["label"])}</td>'
+                    f'<td><code>{_esc(r.get("recommended", "—"))}</code></td>'
+                    f'<td><code>{_esc(r.get("actual", "—"))}</code></td>'
                     f'<td>{_badge(r["grade"])}</td></tr>'
                 )
             body_parts.append(
@@ -837,7 +847,7 @@ def _html_overview_domain_cards(
                     mx_text = "Null MX"
                 else:
                     mx_text = ", ".join(
-                        f'{m["priority"]} {m["host"]}' for m in email_data["mx"][:3]
+                        f'{m["priority"]} {_esc(m["host"])}' for m in email_data["mx"][:3]
                     )
             dkim_count = len(email_data["dkim"])
             body_parts.append(
@@ -845,8 +855,8 @@ def _html_overview_domain_cards(
                 f'<table><thead><tr><th>MX</th><th>SPF</th><th>DMARC</th><th>DKIM</th></tr></thead>'
                 f'<tbody><tr>'
                 f'<td><small>{mx_text}</small></td>'
-                f'<td>{_badge(spf["grade"])} <small>{spf["reason"]}</small></td>'
-                f'<td>{_badge(dmarc["grade"])} <small>{dmarc["reason"]}</small></td>'
+                f'<td>{_badge(spf["grade"])} <small>{_esc(spf["reason"])}</small></td>'
+                f'<td>{_badge(dmarc["grade"])} <small>{_esc(dmarc["reason"])}</small></td>'
                 f'<td>{"&#10003; " + str(dkim_count) + " selector(s)" if dkim_count else "—"}</td>'
                 f'</tr></tbody></table>'
             )
@@ -859,8 +869,8 @@ def _html_overview_domain_cards(
                 f'<div style="margin-top:16px"><strong>Registrar</strong></div>'
                 f'<table><thead><tr><th>Registrar</th><th>Expiry</th><th>Transfer Lock</th></tr></thead>'
                 f'<tbody><tr>'
-                f'<td>{reg.get("registrar", "—")}</td>'
-                f'<td>{_badge(exp.get("grade", "INFO"))} <small>{exp.get("reason", "")}</small></td>'
+                f'<td>{_esc(reg.get("registrar", "—"))}</td>'
+                f'<td>{_badge(exp.get("grade", "INFO"))} <small>{_esc(exp.get("reason", ""))}</small></td>'
                 f'<td>{_badge(lock.get("grade", "INFO"))} '
                 f'<small>{"Locked" if lock.get("locked") else "Unlocked"}</small></td>'
                 f'</tr></tbody></table>'
@@ -869,9 +879,9 @@ def _html_overview_domain_cards(
         body_html = "\n".join(body_parts)
 
         cards.append(
-            f'<div class="domain-card" data-domain="{domain}">'
+            f'<div class="domain-card" data-domain="{_esc(domain)}">'
             f'<div class="domain-card-header" onclick="toggleCard(this)">'
-            f'<h3><code>{domain}</code> <small style="color:var(--text-muted)">'
+            f'<h3><code>{_esc(domain)}</code> <small style="color:var(--text-muted)">'
             f'({dns_count} records)</small></h3>'
             f'<div style="display:flex;align-items:center;gap:8px">'
             f'<span class="badges">{badges_html}</span>'
@@ -895,12 +905,12 @@ def _html_registrar_table(domains, registrar_results) -> str:
 
         exp = result.get("expiry", {})
         lock = result.get("lock", {})
-        ns = ", ".join(result.get("nameservers", [])[:4]) or "—"
+        ns = ", ".join(_esc(n) for n in result.get("nameservers", [])[:4]) or "—"
 
         rows += (
-            f'<tr data-domain="{domain}"><td><code>{domain}</code></td>'
-            f"<td>{result.get('registrar', '—')}</td>"
-            f"<td>{_badge(exp.get('grade', 'INFO'))} <small>{exp.get('reason', '')}</small></td>"
+            f'<tr data-domain="{_esc(domain)}"><td><code>{_esc(domain)}</code></td>'
+            f"<td>{_esc(result.get('registrar', '—'))}</td>"
+            f"<td>{_badge(exp.get('grade', 'INFO'))} <small>{_esc(exp.get('reason', ''))}</small></td>"
             f"<td>{_badge(lock.get('grade', 'INFO'))} <small>{'Locked' if lock.get('locked') else 'Unlocked'}</small></td>"
             f"<td><small>{ns}</small></td></tr>\n"
         )
@@ -936,9 +946,9 @@ def _html_dns_security_table(domains, dns_sec_results) -> str:
 
         detail_rows = (
             f'<tr><td>DNSSEC</td><td>{_badge(dnssec.get("grade", "INFO"))}</td>'
-            f'<td>{dnssec.get("reason", "")}</td></tr>'
+            f'<td>{_esc(dnssec.get("reason", ""))}</td></tr>'
             f'<tr><td>CAA</td><td>{_badge(caa.get("grade", "INFO"))}</td>'
-            f'<td>{caa.get("reason", "")}</td></tr>'
+            f'<td>{_esc(caa.get("reason", ""))}</td></tr>'
             f'<tr><td>Dangling CNAMEs</td><td>{_badge(dangling.get("grade", "INFO"))}</td>'
             f'<td>{len(dang_list)} dangling</td></tr>'
         )
@@ -947,8 +957,8 @@ def _html_dns_security_table(domains, dns_sec_results) -> str:
         caa_html = ""
         if caa_records:
             caa_rows = "".join(
-                f'<tr><td>{r.get("flags", "")}</td><td><code>{r.get("tag", "")}</code></td>'
-                f'<td><code>{r.get("value", "")}</code></td></tr>'
+                f'<tr><td>{_esc(r.get("flags", ""))}</td><td><code>{_esc(r.get("tag", ""))}</code></td>'
+                f'<td><code>{_esc(r.get("value", ""))}</code></td></tr>'
                 for r in caa_records
             )
             caa_html = (
@@ -960,7 +970,7 @@ def _html_dns_security_table(domains, dns_sec_results) -> str:
         dangling_html = ""
         if dang_list:
             dang_rows = "".join(
-                f'<tr><td><code>{d["name"]}</code></td><td><code>{d["target"]}</code></td></tr>'
+                f'<tr><td><code>{_esc(d["name"])}</code></td><td><code>{_esc(d["target"])}</code></td></tr>'
                 for d in dang_list
             )
             dangling_html = (
@@ -976,9 +986,9 @@ def _html_dns_security_table(domains, dns_sec_results) -> str:
         ])
 
         cards.append(
-            f'<div class="domain-card" data-domain="{domain}">'
+            f'<div class="domain-card" data-domain="{_esc(domain)}">'
             f'<div class="domain-card-header" onclick="toggleCard(this)">'
-            f'<h3><code>{domain}</code></h3>'
+            f'<h3><code>{_esc(domain)}</code></h3>'
             f'<div style="display:flex;align-items:center;gap:8px">'
             f'{_badge(overall)}'
             f'<span class="domain-card-chevron" aria-hidden="true">&#9660;</span>'
@@ -1008,28 +1018,28 @@ def _html_security_table(domains, security_results) -> str:
         rows = ""
         for r in sec["results"]:
             rows += (
-                f'<tr><td>{r["label"]}</td>'
-                f'<td><code>{r.get("recommended", "—")}</code></td>'
-                f'<td><code>{r.get("actual", "—")}</code></td>'
+                f'<tr><td>{_esc(r["label"])}</td>'
+                f'<td><code>{_esc(r.get("recommended", "—"))}</code></td>'
+                f'<td><code>{_esc(r.get("actual", "—"))}</code></td>'
                 f'<td>{_badge(r["grade"])}</td>'
-                f'<td>{r.get("note", "")}</td></tr>\n'
+                f'<td>{_esc(r.get("note", ""))}</td></tr>\n'
             )
 
         findings = [r for r in sec["results"] if r["grade"] in ("FAIL", "WARN")]
         findings_html = ""
         if findings:
             items = "".join(
-                f'<li><strong>{r["label"]}</strong> ({_badge(r["grade"])}): '
-                f'{r.get("explanation", "")}</li>'
+                f'<li><strong>{_esc(r["label"])}</strong> ({_badge(r["grade"])}): '
+                f'{_esc(r.get("explanation", ""))}</li>'
                 for r in findings if r.get("explanation")
             )
             if items:
                 findings_html = f'<div style="margin-top:12px"><strong>Findings</strong><ul style="margin:8px 0 0 20px">{items}</ul></div>'
 
         cards.append(
-            f'<div class="domain-card" data-domain="{domain}">'
+            f'<div class="domain-card" data-domain="{_esc(domain)}">'
             f'<div class="domain-card-header" onclick="toggleCard(this)">'
-            f'<h3><code>{domain}</code></h3>'
+            f'<h3><code>{_esc(domain)}</code></h3>'
             f'<div style="display:flex;align-items:center;gap:8px">'
             f'{_progress_ring(passed, total, 36)} {_badge(overall)}'
             f'<span class="domain-card-chevron" aria-hidden="true">&#9660;</span>'
@@ -1061,7 +1071,7 @@ def _html_email_table(domains, email_results) -> str:
 
         mx_text = "None" if not result["mx"] else (
             "Null MX" if not result["has_mail"]
-            else ", ".join(f'{m["priority"]} {m["host"]}' for m in result["mx"][:3])
+            else ", ".join(f'{m["priority"]} {_esc(m["host"])}' for m in result["mx"][:3])
         )
         spf = result["spf"]
         dmarc = result["dmarc"]
@@ -1071,21 +1081,21 @@ def _html_email_table(domains, email_results) -> str:
         # SPF detail
         spf_detail = ""
         if spf.get("record"):
-            spf_detail = f'<div style="margin-top:8px"><code style="word-break:break-all;display:block;padding:8px">{spf["record"]}</code></div>'
+            spf_detail = f'<div style="margin-top:8px"><code style="word-break:break-all;display:block;padding:8px">{_esc(spf["record"])}</code></div>'
 
         # DMARC detail
         dmarc_detail = ""
         if dmarc.get("record"):
-            dmarc_detail = f'<div style="margin-top:8px"><code style="word-break:break-all;display:block;padding:8px">{dmarc["record"]}</code></div>'
+            dmarc_detail = f'<div style="margin-top:8px"><code style="word-break:break-all;display:block;padding:8px">{_esc(dmarc["record"])}</code></div>'
         if dmarc.get("rua"):
-            dmarc_detail += f'<div style="margin-top:4px"><small>Reporting (rua): <code>{dmarc["rua"]}</code></small></div>'
+            dmarc_detail += f'<div style="margin-top:4px"><small>Reporting (rua): <code>{_esc(dmarc["rua"])}</code></small></div>'
 
         # DKIM detail
         dkim_html = ""
         if result["dkim"]:
             dkim_rows = "".join(
-                f'<tr><td><code>{dk["selector"]}</code></td>'
-                f'<td><code>{_truncate(dk["record"], 60)}</code></td></tr>'
+                f'<tr><td><code>{_esc(dk["selector"])}</code></td>'
+                f'<td><code>{_esc(_truncate(dk["record"], 60))}</code></td></tr>'
                 for dk in result["dkim"]
             )
             dkim_html = (
@@ -1098,7 +1108,7 @@ def _html_email_table(domains, email_results) -> str:
         mx_html = ""
         if result["has_mail"] and result["mx"]:
             mx_rows = "".join(
-                f'<tr><td>{m["priority"]}</td><td><code>{m["host"]}</code></td></tr>'
+                f'<tr><td>{m["priority"]}</td><td><code>{_esc(m["host"])}</code></td></tr>'
                 for m in result["mx"]
             )
             mx_html = (
@@ -1108,9 +1118,9 @@ def _html_email_table(domains, email_results) -> str:
             )
 
         cards.append(
-            f'<div class="domain-card" data-domain="{domain}">'
+            f'<div class="domain-card" data-domain="{_esc(domain)}">'
             f'<div class="domain-card-header" onclick="toggleCard(this)">'
-            f'<h3><code>{domain}</code></h3>'
+            f'<h3><code>{_esc(domain)}</code></h3>'
             f'<div style="display:flex;align-items:center;gap:8px">'
             f'{_badge(email_grade)} '
             f'<small style="color:var(--text-muted)">{mx_text}</small>'
@@ -1119,8 +1129,8 @@ def _html_email_table(domains, email_results) -> str:
             f'<div class="domain-card-body">'
             f'<table><thead><tr><th>Check</th><th>Grade</th><th>Details</th></tr></thead>'
             f'<tbody>'
-            f'<tr><td>SPF</td><td>{_badge(spf["grade"])}</td><td>{spf["reason"]}{spf_detail}</td></tr>'
-            f'<tr><td>DMARC</td><td>{_badge(dmarc["grade"])}</td><td>{dmarc["reason"]}{dmarc_detail}</td></tr>'
+            f'<tr><td>SPF</td><td>{_badge(spf["grade"])}</td><td>{_esc(spf["reason"])}{spf_detail}</td></tr>'
+            f'<tr><td>DMARC</td><td>{_badge(dmarc["grade"])}</td><td>{_esc(dmarc["reason"])}{dmarc_detail}</td></tr>'
             f'<tr><td>DKIM</td><td>{_badge("PASS" if dkim_count else "INFO")}</td>'
             f'<td>{dkim_count} selector(s) found</td></tr>'
             f'</tbody></table>'
@@ -1145,14 +1155,14 @@ def _html_blacklist_table(domains, blacklist_results) -> str:
         detail = ""
         if listings:
             detail = "<br>".join(
-                f"<small>{l.get('ip', '')} on {l.get('blacklist', '')}</small>"
+                f"<small>{_esc(l.get('ip', ''))} on {_esc(l.get('blacklist', ''))}</small>"
                 for l in listings[:5]
             )
 
         rows += (
-            f'<tr data-domain="{domain}"><td><code>{domain}</code></td>'
+            f'<tr data-domain="{_esc(domain)}"><td><code>{_esc(domain)}</code></td>'
             f"<td>{_badge(result.get('grade', 'INFO'))} "
-            f"<small>{result.get('reason', '')}</small></td>"
+            f"<small>{_esc(result.get('reason', ''))}</small></td>"
             f"<td>{detail or '—'}</td></tr>\n"
         )
 
@@ -1182,15 +1192,15 @@ def _html_rdns_table(domains, rdns_results) -> str:
         detail = ""
         if ptr_results:
             detail = "<br>".join(
-                f"<small>{r.get('ip', '')} &rarr; {r.get('ptr', '—')} "
+                f"<small>{_esc(r.get('ip', ''))} &rarr; {_esc(r.get('ptr', '—'))} "
                 f"{'&#10003;' if r.get('fcrdns') else '&#10007;'}</small>"
                 for r in ptr_results[:5]
             )
 
         rows += (
-            f'<tr data-domain="{domain}"><td><code>{domain}</code></td>'
+            f'<tr data-domain="{_esc(domain)}"><td><code>{_esc(domain)}</code></td>'
             f"<td>{_badge(result.get('grade', 'INFO'))} "
-            f"<small>{result.get('reason', '')}</small></td>"
+            f"<small>{_esc(result.get('reason', ''))}</small></td>"
             f"<td>{detail or '—'}</td></tr>\n"
         )
 
@@ -1217,7 +1227,7 @@ def _html_dns_tables(domains, dns_results) -> str:
             continue
 
         type_pills = " ".join(
-            f'<span class="badge badge-info">{t}: {c}</span>'
+            f'<span class="badge badge-info">{_esc(t)}: {c}</span>'
             for t, c in summary["by_type"].items()
         )
 
@@ -1226,18 +1236,18 @@ def _html_dns_tables(domains, dns_results) -> str:
             proxied = '<span class="badge badge-warning">proxied</span>' if r["proxied"] else ""
             rows += (
                 f"<tr>"
-                f"<td><code>{r['type']}</code></td>"
-                f"<td><code>{r['name']}</code></td>"
-                f"<td><code>{_truncate(r['content'], 70)}</code></td>"
+                f"<td><code>{_esc(r['type'])}</code></td>"
+                f"<td><code>{_esc(r['name'])}</code></td>"
+                f"<td><code>{_esc(_truncate(r['content'], 70))}</code></td>"
                 f"<td>{r['ttl']}</td>"
                 f"<td>{proxied}</td>"
                 f"</tr>\n"
             )
 
         cards.append(
-            f'<div class="domain-card" data-domain="{domain}">'
+            f'<div class="domain-card" data-domain="{_esc(domain)}">'
             f'<div class="domain-card-header" onclick="toggleCard(this)">'
-            f'<h3><code>{domain}</code> <small style="color:var(--text-muted)">'
+            f'<h3><code>{_esc(domain)}</code> <small style="color:var(--text-muted)">'
             f'&mdash; {summary["total"]} records</small></h3>'
             f'<div style="display:flex;align-items:center;gap:8px">'
             f'<span>{type_pills}</span>'
