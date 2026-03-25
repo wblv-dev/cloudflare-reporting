@@ -6,7 +6,7 @@ each category, preventing rate-limit hits and resolver flooding when
 auditing 100+ zones.
 
 Usage:
-    from lib.concurrency import sem
+    from cloudflare_reporting.lib.concurrency import sem
 
     async with sem.cf_api:
         result = await cf_get(session, path)
@@ -18,6 +18,8 @@ All limits are configurable via set_limits().
 """
 
 import asyncio
+
+from cloudflare_reporting.lib.log import logger
 
 
 class _Semaphores:
@@ -110,7 +112,7 @@ async def throttled_gather(coro_dict: dict, label: str = "check") -> dict:
             try:
                 results[key] = await coro
             except Exception as e:
-                print(f"  [ERROR] {label} failed for {key}: {e}")
+                logger.error("%s failed for %s: %s", label, key, e)
 
     await asyncio.gather(*[_run(k, c) for k, c in coro_dict.items()])
     return results
@@ -123,6 +125,6 @@ async def run_in_executor_throttled(func, *args, semaphore=None):
     loop.run_in_executor but needs concurrency limits.
     """
     s = semaphore or sem.dns
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     async with s:
         return await loop.run_in_executor(None, func, *args)

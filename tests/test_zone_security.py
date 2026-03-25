@@ -1,11 +1,6 @@
 """Tests for zone_security grading functions and bulk settings extraction."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from checks.zone_security import (
+from cloudflare_reporting.checks.zone_security import (
     _grade, _grade_hsts, _extract_setting, _extract_hsts, CHECKS,
 )
 

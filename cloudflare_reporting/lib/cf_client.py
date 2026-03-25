@@ -12,8 +12,8 @@ from typing import Dict, List, Optional
 
 import aiohttp
 
-import config
-from lib.concurrency import sem
+from cloudflare_reporting import config
+from cloudflare_reporting.lib.concurrency import sem
 
 
 def _get_headers() -> Dict[str, str]:

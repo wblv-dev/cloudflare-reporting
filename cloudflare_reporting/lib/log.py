@@ -4,7 +4,7 @@ log.py — Structured logging for the audit toolkit.
 Provides a pre-configured logger that writes to both stderr (for terminal
 output) and an optional log file. All modules should use:
 
-    from lib.log import logger
+    from cloudflare_reporting.lib.log import logger
     logger.info("message")
 
 Log levels:

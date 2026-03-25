@@ -1,11 +1,6 @@
 """Tests for dns_inventory.summarise()."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from checks.dns_inventory import summarise
+from cloudflare_reporting.checks.dns_inventory import summarise
 
 
 class TestSummarise:

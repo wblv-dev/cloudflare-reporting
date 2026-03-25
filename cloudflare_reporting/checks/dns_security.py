@@ -9,13 +9,10 @@ from typing import Dict, List, Optional
 
 import dns.flags
 import dns.name
-import dns.rdatatype
 import dns.resolver
-import dns.message
-import dns.query
 
-import config
-from lib import dns_resolver as resolver
+from cloudflare_reporting import config
+from cloudflare_reporting.lib import dns_resolver as resolver
 
 
 # Cloudflare-compatible CAs (used for edge certificate issuance)
@@ -221,7 +218,7 @@ def grade_dangling(dangling: List[dict]) -> dict:
 
 async def check_dnssec(domain: str) -> dict:
     """Async wrapper for DNSSEC check, throttled."""
-    from lib.concurrency import run_in_executor_throttled
+    from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
     result = await run_in_executor_throttled(_check_dnssec_sync, domain)
     print(f"  [DNSSEC] {domain}: {result['grade']}")
     return result
@@ -229,7 +226,7 @@ async def check_dnssec(domain: str) -> dict:
 
 async def check_caa(domain: str) -> dict:
     """Async wrapper for CAA check, throttled."""
-    from lib.concurrency import run_in_executor_throttled
+    from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
     result = await run_in_executor_throttled(_check_caa_sync, domain)
     print(f"  [CAA] {domain}: {result['grade']}")
     return result
@@ -237,7 +234,7 @@ async def check_caa(domain: str) -> dict:
 
 async def check_dangling(domain: str, cname_records: List[dict]) -> dict:
     """Async wrapper for dangling CNAME check, throttled."""
-    from lib.concurrency import run_in_executor_throttled
+    from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
     result = await run_in_executor_throttled(_check_dangling_sync, domain, cname_records)
     count = len(result["dangling"])
     print(f"  [DANGLING] {domain}: {result['grade']}"
@@ -268,7 +265,7 @@ async def check_all(
     dns_records: Dict[str, List[dict]],
 ) -> Dict[str, dict]:
     """Run DNS security checks for all domains, throttled."""
-    from lib.concurrency import throttled_gather
+    from cloudflare_reporting.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d, dns_records.get(d, [])) for d in domains},
         label="DNS security check",

@@ -1,11 +1,6 @@
 """Tests for blacklist grading logic and helpers."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from checks.blacklist import _reverse_ip, _is_cloud_mail, grade_blacklist
+from cloudflare_reporting.checks.blacklist import _reverse_ip, _is_cloud_mail, grade_blacklist
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

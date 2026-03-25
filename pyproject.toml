@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudflare-reporting"
+version = "1.2.0"
+description = "Read-only Cloudflare security audit toolkit"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.9",
+    "dnspython>=2.4",
+    "datasette>=0.64",
+    "datasette-vega>=0.6",
+]
+
+[project.scripts]
+cf-audit = "cloudflare_reporting.cli:main"
+cf-dashboard = "cloudflare_reporting.dashboard:main"
+
+[project.urls]
+Repository = "https://github.com/wblv-dev/cloudflare-reporting"
+
+[tool.setuptools.packages.find]
+include = ["cloudflare_reporting*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

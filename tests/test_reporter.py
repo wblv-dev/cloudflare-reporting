@@ -2,12 +2,9 @@
 
 import csv
 import os
-import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from lib.reporter import _worst, _sym, _truncate, _badge, write_csv, GRADE_SYMBOL
+from cloudflare_reporting.lib.reporter import _worst, _sym, _truncate, _badge, write_csv, GRADE_SYMBOL
 
 
 class TestWorst:

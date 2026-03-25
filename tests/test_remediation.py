@@ -1,11 +1,6 @@
 """Tests for remediation guidance module."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from lib.remediation import get_tooltip, get_remediation, collect_remediations, TOOLTIPS, REMEDIATIONS
+from cloudflare_reporting.lib.remediation import get_tooltip, get_remediation, collect_remediations, TOOLTIPS, REMEDIATIONS
 
 
 class TestGetTooltip:

@@ -20,7 +20,7 @@ reverse_dns       — PTR/rDNS results per domain per run
 import json
 import sqlite3
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 
 CREATE_SCHEMA = """

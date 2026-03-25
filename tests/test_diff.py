@@ -1,13 +1,10 @@
 """Tests for diff computation and formatting."""
 
 import os
-import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from lib.diff import compute_diff, format_diff_text
-from lib.database import Database
+from cloudflare_reporting.lib.diff import compute_diff, format_diff_text
+from cloudflare_reporting.lib.database import Database
 
 
 class TestComputeDiff:

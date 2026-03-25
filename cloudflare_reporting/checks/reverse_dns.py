@@ -10,7 +10,7 @@ from typing import Dict, List
 
 import dns.reversename
 
-from lib import dns_resolver as resolver
+from cloudflare_reporting.lib import dns_resolver as resolver
 
 
 def _ptr_lookup(ip: str) -> List[str]:
@@ -110,7 +110,7 @@ def grade_reverse_dns(ptr_results: List[dict]) -> dict:
 
 async def check_domain(domain: str) -> dict:
     """Async wrapper — runs PTR lookups in a thread pool, throttled."""
-    from lib.concurrency import run_in_executor_throttled
+    from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
     result = await run_in_executor_throttled(_check_mx_ptr_sync, domain)
     print(f"  [rDNS] {domain}: {result['grade']}")
     return result
@@ -118,7 +118,7 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run reverse DNS checks for all domains, throttled."""
-    from lib.concurrency import throttled_gather
+    from cloudflare_reporting.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="Reverse DNS check"
     )

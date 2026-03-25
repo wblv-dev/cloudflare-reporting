@@ -1,12 +1,8 @@
 """Tests for registrar grading logic and RDAP parsing."""
 
-import sys
-import os
 from datetime import datetime, timezone, timedelta
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from checks.registrar import (
+from cloudflare_reporting.checks.registrar import (
     grade_expiry,
     grade_lock,
     _parse_expiry,

@@ -13,24 +13,21 @@ Covers:
 
 import html
 import os
-import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from lib.reporter import _badge, _truncate, write_csv, write_html
-from lib.database import Database
-from checks.dns_inventory import summarise
-from checks.registrar import (
+from cloudflare_reporting.lib.reporter import _badge, _truncate, write_csv, write_html
+from cloudflare_reporting.lib.database import Database
+from cloudflare_reporting.checks.dns_inventory import summarise
+from cloudflare_reporting.checks.registrar import (
     grade_expiry, grade_lock, _parse_expiry, _parse_statuses,
     _parse_nameservers, _parse_registrar, RDAP_BOOTSTRAP,
 )
-from checks.dns_security import grade_dnssec, grade_caa, grade_dangling
-from checks.blacklist import _reverse_ip, _is_cloud_mail, grade_blacklist
-from checks.reverse_dns import grade_reverse_dns
-from lib.dns_resolver import grade_spf, grade_dmarc
-from checks.zone_security import _grade, _extract_setting, CHECKS
-import config
+from cloudflare_reporting.checks.dns_security import grade_dnssec, grade_caa, grade_dangling
+from cloudflare_reporting.checks.blacklist import _reverse_ip, _is_cloud_mail, grade_blacklist
+from cloudflare_reporting.checks.reverse_dns import grade_reverse_dns
+from cloudflare_reporting.lib.dns_resolver import grade_spf, grade_dmarc
+from cloudflare_reporting.checks.zone_security import _grade, _extract_setting, CHECKS
+from cloudflare_reporting import config
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -44,7 +41,7 @@ class TestCredentialLeakage:
         """check_domain() and check_all() must NOT accept a session parameter,
         preventing accidental reuse of the authenticated CF session."""
         import inspect
-        from checks import registrar
+        from cloudflare_reporting.checks import registrar
 
         sig_domain = inspect.signature(registrar.check_domain)
         sig_all = inspect.signature(registrar.check_all)
@@ -60,7 +57,7 @@ class TestCredentialLeakage:
     def test_rdap_fetch_does_not_accept_session(self):
         """_fetch_rdap() must not accept a session parameter."""
         import inspect
-        from checks.registrar import _fetch_rdap
+        from cloudflare_reporting.checks.registrar import _fetch_rdap
 
         sig = inspect.signature(_fetch_rdap)
         assert "session" not in sig.parameters, \
@@ -73,7 +70,7 @@ class TestCredentialLeakage:
     def test_config_token_from_env_not_hardcoded(self):
         """CF_API_TOKEN must be loaded from environment, never hardcoded."""
         import ast
-        with open("config.py", encoding="utf-8") as f:
+        with open(os.path.join(os.path.dirname(__file__), "..", "cloudflare_reporting", "config.py"), encoding="utf-8") as f:
             tree = ast.parse(f.read())
 
         for node in ast.walk(tree):
@@ -401,7 +398,7 @@ class TestConfigurationSecurity:
     def test_default_token_is_empty(self):
         """Default token must be empty string, not a real value."""
         import ast
-        with open("config.py", encoding="utf-8") as f:
+        with open(os.path.join(os.path.dirname(__file__), "..", "cloudflare_reporting", "config.py"), encoding="utf-8") as f:
             source = f.read()
         assert 'os.getenv("CF_API_TOKEN"' in source or "os.getenv('CF_API_TOKEN'" in source
 
@@ -426,7 +423,7 @@ class TestConfigurationSecurity:
 
     def test_gitignore_covers_sensitive_files(self):
         """Gitignore must exclude generated output and environment files."""
-        with open(".gitignore", encoding="utf-8") as f:
+        with open(os.path.join(os.path.dirname(__file__), "..", ".gitignore"), encoding="utf-8") as f:
             gitignore = f.read()
         required = ["audit_history.db", ".env", "AUDIT_REPORT.md",
                      "audit_report.html", "audit_report.csv"]

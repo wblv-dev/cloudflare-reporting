@@ -1,11 +1,6 @@
 """Tests for email_standards grading logic (MTA-STS, TLSRPT, BIMI)."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from checks.email_standards import grade_mta_sts, grade_tlsrpt, grade_bimi
+from cloudflare_reporting.checks.email_standards import grade_mta_sts, grade_tlsrpt, grade_bimi
 
 
 # ── MTA-STS grading ─────────────────────────────────────────────────────────

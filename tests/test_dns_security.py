@@ -1,11 +1,6 @@
 """Tests for dns_security grading logic."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from checks.dns_security import grade_dnssec, grade_caa, grade_dangling
+from cloudflare_reporting.checks.dns_security import grade_dnssec, grade_caa, grade_dangling
 
 
 # ── DNSSEC grading ───────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@ import html
 from datetime import datetime, timezone
 from typing import Dict, List
 
-from lib.remediation import get_tooltip, collect_remediations, TOOLTIPS
+from cloudflare_reporting.lib.remediation import get_tooltip, collect_remediations
 
 
 # ── Grade helpers ─────────────────────────────────────────────────────────────
@@ -326,7 +326,7 @@ def _md_email(domain: str, result: dict) -> str:
     else:
         lines.append(
             "**DKIM:** No common selectors found. "
-            "Add your provider's selector to `DKIM_SELECTORS` in `email_security.py`.\n"
+            "Add your provider's selector to `DKIM_SELECTORS` in `cloudflare_reporting/checks/email_security.py`.\n"
         )
 
     return "\n".join(lines) + "\n"

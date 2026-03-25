@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-audit.py — Cloudflare DNS Audit Toolkit.
+cf-audit — Cloudflare DNS Audit Toolkit.
 
 Audits DNS inventory, email security, zone security settings, registrar
 status, DNSSEC, CAA, dangling CNAMEs, blacklists, reverse DNS, MTA-STS,
@@ -8,10 +8,10 @@ TLSRPT, and BIMI for every zone accessible to the API token.
 
 Usage:
     export CF_API_TOKEN="your_token_here"
-    python audit.py
-    python audit.py --domains example.com example.org
-    python audit.py --output-dir /tmp/reports --verbose
-    python audit.py --log-file audit.log
+    cf-audit
+    cf-audit --domains example.com example.org
+    cf-audit --output-dir /tmp/reports --verbose
+    cf-audit --log-file audit.log
 
 Token requirements: Zone:Read, DNS:Read — read-only, no changes made.
 """
@@ -21,25 +21,25 @@ import asyncio
 import os
 import sys
 
-import config
-from lib.log import logger, setup_logging
-from lib import cf_client
-from lib import reporter
-from lib.database import Database
-from lib.diff import compute_diff, format_diff_text
-from checks import dns_inventory
-from checks import email_security
-from checks import email_standards
-from checks import zone_security
-from checks import registrar
-from checks import dns_security
-from checks import blacklist
-from checks import reverse_dns
+from cloudflare_reporting import config
+from cloudflare_reporting.lib.log import logger, setup_logging
+from cloudflare_reporting.lib import cf_client
+from cloudflare_reporting.lib import reporter
+from cloudflare_reporting.lib.database import Database
+from cloudflare_reporting.lib.diff import compute_diff, format_diff_text
+from cloudflare_reporting.checks import dns_inventory
+from cloudflare_reporting.checks import email_security
+from cloudflare_reporting.checks import email_standards
+from cloudflare_reporting.checks import zone_security
+from cloudflare_reporting.checks import registrar
+from cloudflare_reporting.checks import dns_security
+from cloudflare_reporting.checks import blacklist
+from cloudflare_reporting.checks import reverse_dns
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        prog="audit.py",
+        prog="cf-audit",
         description=(
             "Cloudflare DNS security audit toolkit.\n\n"
             "Runs 20+ read-only checks across DNS, email, TLS, registrar,\n"
@@ -143,7 +143,7 @@ def _collect_all_grades(
 
 async def _run_audit(args: argparse.Namespace) -> int:
     # Configure concurrency limits
-    from lib.concurrency import sem
+    from cloudflare_reporting.lib.concurrency import sem
     sem.set_limits(domain=args.concurrency)
     logger.debug(
         "Concurrency: %d domains, %d CF API, %d DNS, %d RDAP, %d HTTP",
@@ -319,13 +319,12 @@ async def _run_audit(args: argparse.Namespace) -> int:
         else:
             print("\n  No changes since previous run.")
 
-    formats_written = [f for f in args.format]
     paths = []
-    if "md" in formats_written:
+    if "md" in args.format:
         paths.append(path_md)
-    if "html" in formats_written:
+    if "html" in args.format:
         paths.append(path_html)
-    if "csv" in formats_written:
+    if "csv" in args.format:
         paths.append(path_csv)
 
     print(f"\n  Reports: {', '.join(paths)}")
@@ -338,12 +337,9 @@ async def _run_audit(args: argparse.Namespace) -> int:
         email_std_results, resolved,
     )
     has_fail = any(g == "FAIL" for g in all_grades)
-    has_warn = any(g == "WARN" for g in all_grades)
 
     if has_fail:
         return 2  # At least one FAIL
-    elif has_warn:
-        return 0  # WARNs are not failures
     return 0
 
 

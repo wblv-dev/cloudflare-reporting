@@ -1,12 +1,9 @@
 """Tests for new database tables: registrar, dns_security, blacklist, reverse_dns."""
 
 import os
-import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from lib.database import Database
+from cloudflare_reporting.lib.database import Database
 
 
 def _tmp_db():

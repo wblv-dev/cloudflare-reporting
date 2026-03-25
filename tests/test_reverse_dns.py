@@ -1,11 +1,6 @@
 """Tests for reverse_dns grading logic."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from checks.reverse_dns import grade_reverse_dns
+from cloudflare_reporting.checks.reverse_dns import grade_reverse_dns
 
 
 class TestGradeReverseDns:

@@ -1,11 +1,6 @@
 """Tests for dns_resolver grading logic."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from lib.dns_resolver import grade_spf, grade_dmarc
+from cloudflare_reporting.lib.dns_resolver import grade_spf, grade_dmarc
 
 
 # ── SPF grading ──────────────────────────────────────────────────────────────
