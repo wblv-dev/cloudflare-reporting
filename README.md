@@ -98,22 +98,24 @@ cf-audit --output-dir /tmp/reports           # Custom output location
 cf-audit --verbose --log-file audit.log      # Debug logging
 ```
 
-Opens four output files:
+Generates a **customer-ready GRC dashboard** and supporting files:
 
 | File | What |
 |------|------|
-| `audit_report.html` | Static report — tabs, search, dark mode, **remediation steps** |
+| `audit_report.html` | **GRC dashboard** — compliance charts, risk overview, per-domain scores, prioritised remediations with fix steps. Self-contained, works offline, printable as PDF. |
 | `AUDIT_REPORT.md` | Markdown — commit it, diff it |
 | `audit_report.csv` | One row per domain — for spreadsheets |
 | `audit_history.db` | SQLite — cumulative across runs |
 
-### Dashboard
+The HTML report is designed to be **sent directly to customers** — no technical knowledge required to read it. Print or save as PDF for a polished deliverable.
+
+### Data explorer (optional)
 
 ```bash
 cf-dashboard                                 # http://localhost:8001
 ```
 
-Interactive [Datasette](https://datasette.io/) dashboard with pre-built queries, charts, SQL editor, and full audit history. [See Datasette docs →](https://docs.datasette.io/)
+Launches a [Datasette](https://datasette.io/) interface for power users who want to run custom SQL queries, explore audit history, or build their own views from the raw data.
 
 ---
 
