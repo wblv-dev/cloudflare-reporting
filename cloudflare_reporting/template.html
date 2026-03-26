@@ -138,6 +138,22 @@ code{font-family:'SF Mono',Monaco,Consolas,monospace;background:#1e293b;padding:
 .diff-improvement{background:rgba(52,211,153,.1);border-left:3px solid #059669}
 .diff-dns{background:rgba(96,165,250,.1);border-left:3px solid #3b82f6}
 
+/* Priority group (collapsible) */
+.pgroup{margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid #1f2937}
+.pgroup-hdr{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;transition:background .15s;background:#111827}
+.pgroup-hdr:hover{background:#1a2332}
+.pgroup-hdr h3{font-size:.9em;font-weight:600;display:flex;align-items:center;gap:8px}
+.pgroup-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.pgroup.open .pgroup-body{max-height:50000px}
+.pgroup .gchev{transition:transform .3s;color:#475569;font-size:.7em}
+.pgroup.open .gchev{transform:rotate(180deg)}
+.pgroup.critical .pgroup-hdr{border-left:4px solid #dc2626}
+.pgroup.high .pgroup-hdr{border-left:4px solid #f97316}
+.pgroup.medium .pgroup-hdr{border-left:4px solid #eab308}
+.pgroup.low .pgroup-hdr{border-left:4px solid #3b82f6}
+.pgroup.info .pgroup-hdr{border-left:4px solid #64748b}
+
 /* Finding detail (expandable row) */
 .finding-row{cursor:pointer;transition:background .15s}
 .finding-row:hover td{background:rgba(96,165,250,.05)}
@@ -202,6 +218,15 @@ code{font-family:'SF Mono',Monaco,Consolas,monospace;background:#1e293b;padding:
   </div>
 </div>
 
+<!-- Global search -->
+<div style="margin-bottom:16px">
+  <input id="globalSearch" type="text" placeholder="Search domains, checks, findings..."
+    style="width:100%;padding:12px 16px;background:#111827;border:1px solid #374151;color:#e2e8f0;
+    border-radius:10px;font-size:.9em;outline:none;transition:border-color .2s"
+    onfocus="this.style.borderColor='#60a5fa'" onblur="this.style.borderColor='#374151'"
+    oninput="globalFilter(this.value)">
+</div>
+
 <!-- Tabs -->
 <div class="tabs" id="tabBar"></div>
 
@@ -261,9 +286,9 @@ function buildSummary(){
   // KPI cards - clickable
   h+='<div class="grid g4" style="margin-bottom:20px">';
   h+='<div class="card kpi blue" onclick="switchTab(\'domains\')"><div class="val">'+D.domains.length+'</div><div class="lbl">Domains</div><div class="hint">Click to explore</div></div>';
-  h+='<div class="card kpi green" onclick="switchTab(\'findings\',\'PASS\')"><div class="val">'+D.grades.pass+'</div><div class="lbl">Passed</div><div class="hint">Click to view</div></div>';
-  h+='<div class="card kpi amber" onclick="switchTab(\'findings\',\'WARN\')"><div class="val">'+D.grades.warn+'</div><div class="lbl">Warnings</div><div class="hint">Click to view</div></div>';
-  h+='<div class="card kpi red" onclick="switchTab(\'findings\',\'FAIL\')"><div class="val">'+D.grades.fail+'</div><div class="lbl">Failures</div><div class="hint">Click to view</div></div>';
+  h+='<div class="card kpi green" onclick="switchTab(\'findings\');openGradeGroup(\'PASS\')"><div class="val">'+D.grades.pass+'</div><div class="lbl">Passed</div><div class="hint">Click to view</div></div>';
+  h+='<div class="card kpi amber" onclick="switchTab(\'findings\');openGradeGroup(\'WARN\')"><div class="val">'+D.grades.warn+'</div><div class="lbl">Warnings</div><div class="hint">Click to view</div></div>';
+  h+='<div class="card kpi red" onclick="switchTab(\'findings\');openGradeGroup(\'FAIL\')"><div class="val">'+D.grades.fail+'</div><div class="lbl">Failures</div><div class="hint">Click to view</div></div>';
   h+='</div>';
 
   // Charts row
@@ -290,11 +315,11 @@ function buildSummary(){
   return h;
 }
 
-/* ── BUILD FINDINGS TAB ──────────────────────────────────── */
+/* ── BUILD FINDINGS TAB — grouped by grade priority ─────── */
 function buildFindings(){
   var h='';
+  // Filter bar
   h+='<div class="filter-bar">';
-  h+='<select id="filterGrade" onchange="applyFindingsFilter()"><option value="">All grades</option><option value="FAIL">FAIL</option><option value="WARN">WARN</option><option value="PASS">PASS</option><option value="INFO">INFO</option></select>';
   h+='<select id="filterCat" onchange="applyFindingsFilter()"><option value="">All categories</option>';
   var cats={};D.allChecks.forEach(function(c){cats[c.category]=1});
   Object.keys(cats).sort().forEach(function(c){h+='<option value="'+esc(c)+'">'+esc(c)+'</option>'});
@@ -303,70 +328,87 @@ function buildFindings(){
   D.domains.forEach(function(d){h+='<option value="'+esc(d)+'">'+esc(d)+'</option>'});
   h+='</select>';
   h+='</div>';
-  h+='<table><thead><tr><th>Domain</th><th>Category</th><th>Check</th><th>Recommended</th><th>Actual</th><th>Grade</th></tr></thead>';
-  h+='<tbody id="findingsBody">';
-  D.allChecks.forEach(function(c,idx){
-    // Main row — clickable
-    h+='<tr class="finding-row" data-grade="'+esc(c.grade)+'" data-cat="'+esc(c.category)+'" data-domain="'+esc(c.domain)+'" onclick="toggleFinding('+idx+')">';
-    h+='<td><code>'+esc(c.domain)+'</code></td>';
-    h+='<td>'+esc(c.category)+'</td>';
-    h+='<td>'+tip(c.check,D.tooltips[c.check]||'')+'</td>';
-    h+='<td><code>'+esc(c.recommended||'\u2014')+'</code></td>';
-    h+='<td>'+esc(c.actual||'\u2014')+'</td>';
-    h+='<td>'+badge(c.grade)+'</td></tr>';
-    // Detail row — hidden by default, shown on click
-    var tt=D.tooltips[c.check]||'';
-    var rem=null;
-    if(c.grade==='FAIL'||c.grade==='WARN'){
-      D.findings.forEach(function(f){if(f.domain===c.domain&&f.check===c.check)rem=f});
-    }
-    h+='<tr class="finding-detail" id="fd'+idx+'" data-grade="'+esc(c.grade)+'" data-cat="'+esc(c.category)+'" data-domain="'+esc(c.domain)+'">';
-    h+='<td colspan="6"><div class="fd-inner">';
-    h+='<h4>'+esc(c.check)+' \u2014 '+esc(c.domain)+'</h4>';
-    if(tt) h+='<div class="fd-explain"><strong>What is this?</strong> '+esc(tt)+'</div>';
-    if(c.actual) h+='<div class="fd-explain"><strong>Current status:</strong> '+esc(c.actual)+'</div>';
-    if(rem&&rem.risk) h+='<div class="fd-explain"><strong>Risk:</strong> '+esc(rem.risk)+'</div>';
-    if(rem&&rem.steps&&rem.steps.length){
-      h+='<div style="margin-bottom:4px;font-size:.85em;color:#60a5fa;font-weight:600">How to fix:</div>';
-      h+='<ol class="fd-steps">';
-      rem.steps.forEach(function(s){h+='<li>'+esc(s)+'</li>'});
-      h+='</ol>';
-    } else if(c.grade==='PASS'){
-      h+='<div class="fd-explain" style="color:#34d399">\u2713 This check is passing. No action required.</div>';
-    } else if(c.grade==='INFO'){
-      h+='<div class="fd-explain">This is an informational finding \u2014 no action required. The setting may not be available on your current Cloudflare plan.</div>';
-    }
-    h+='</div></td></tr>';
+
+  // Group checks by grade
+  var groups=[
+    {grade:'FAIL',label:'Failures',cls:'critical',open:true},
+    {grade:'WARN',label:'Warnings',cls:'high',open:true},
+    {grade:'PASS',label:'Passed',cls:'low',open:false},
+    {grade:'INFO',label:'Informational',cls:'info',open:false}
+  ];
+  var gIdx=0;
+  groups.forEach(function(gr){
+    var items=D.allChecks.filter(function(c){return c.grade===gr.grade});
+    if(!items.length)return;
+    h+='<div class="pgroup '+gr.cls+(gr.open?' open':'')+'" data-grade="'+gr.grade+'">';
+    h+='<div class="pgroup-hdr" onclick="this.parentElement.classList.toggle(\'open\')">';
+    h+='<h3>'+badge(gr.grade)+' '+gr.label+' ('+items.length+')</h3>';
+    h+='<span class="gchev">&#9660;</span></div>';
+    h+='<div class="pgroup-body"><div style="padding:0 4px 12px">';
+    h+='<table><thead><tr><th>Domain</th><th>Category</th><th>Check</th><th>Recommended</th><th>Status</th></tr></thead><tbody>';
+    items.forEach(function(c){
+      var idx=gIdx++;
+      var tt=D.tooltips[c.check]||'';
+      var rem=null;
+      if(c.grade==='FAIL'||c.grade==='WARN'){
+        D.findings.forEach(function(f){if(f.domain===c.domain&&f.check===c.check)rem=f});
+      }
+      // Main row
+      h+='<tr class="finding-row" data-grade="'+esc(c.grade)+'" data-cat="'+esc(c.category)+'" data-domain="'+esc(c.domain)+'" onclick="toggleFinding(\'fd'+idx+'\')">';
+      h+='<td><code>'+esc(c.domain)+'</code></td>';
+      h+='<td>'+esc(c.category)+'</td>';
+      h+='<td>'+tip(c.check,tt)+'</td>';
+      h+='<td><code>'+esc(c.recommended||'\u2014')+'</code></td>';
+      h+='<td>'+esc(c.actual||'\u2014')+'</td></tr>';
+      // Detail row
+      h+='<tr class="finding-detail" id="fd'+idx+'" data-grade="'+esc(c.grade)+'" data-cat="'+esc(c.category)+'" data-domain="'+esc(c.domain)+'">';
+      h+='<td colspan="5"><div class="fd-inner">';
+      h+='<h4>'+esc(c.check)+' \u2014 '+esc(c.domain)+'</h4>';
+      if(tt) h+='<div class="fd-explain"><strong>What is this?</strong> '+esc(tt)+'</div>';
+      if(c.actual) h+='<div class="fd-explain"><strong>Current status:</strong> '+esc(c.actual)+'</div>';
+      if(rem&&rem.risk) h+='<div class="fd-explain"><strong>Risk:</strong> '+esc(rem.risk)+'</div>';
+      if(rem&&rem.steps&&rem.steps.length){
+        h+='<div style="margin-bottom:4px;font-size:.85em;color:#60a5fa;font-weight:600">How to fix:</div>';
+        h+='<ol class="fd-steps">';
+        rem.steps.forEach(function(s){h+='<li>'+esc(s)+'</li>'});
+        h+='</ol>';
+      } else if(c.grade==='PASS'){
+        h+='<div class="fd-explain" style="color:#34d399">\u2713 This check is passing. No action required.</div>';
+      } else if(c.grade==='INFO'){
+        h+='<div class="fd-explain">Informational \u2014 no action required. This setting may not be available on your current plan.</div>';
+      }
+      h+='</div></td></tr>';
+    });
+    h+='</tbody></table></div></div></div>';
   });
-  h+='</tbody></table>';
   return h;
 }
 
-function toggleFinding(idx){
-  var el=document.getElementById('fd'+idx);
+function toggleFinding(id){
+  var el=document.getElementById(id);
   if(!el)return;
   el.style.display=el.style.display==='table-row'?'none':'table-row';
 }
 
-function applyFindingsFilter(presetGrade){
-  var gSel=document.getElementById('filterGrade');
-  if(presetGrade){gSel.value=presetGrade}
-  var g=gSel.value, cat=document.getElementById('filterCat').value, dom=document.getElementById('filterDomain').value;
+function openGradeGroup(grade){
+  // Collapse all, then open the target group
+  document.querySelectorAll('.pgroup').forEach(function(g){g.classList.remove('open')});
+  document.querySelectorAll('.pgroup[data-grade="'+grade+'"]').forEach(function(g){
+    g.classList.add('open');
+    g.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+}
+
+function applyFindingsFilter(){
+  var cat=document.getElementById('filterCat').value;
+  var dom=document.getElementById('filterDomain').value;
   document.querySelectorAll('.finding-row').forEach(function(row){
     var show=true;
-    if(g && row.dataset.grade!==g) show=false;
     if(cat && row.dataset.cat!==cat) show=false;
     if(dom && row.dataset.domain!==dom) show=false;
     row.style.display=show?'':'none';
   });
-  // Also hide all detail rows when filter changes
-  document.querySelectorAll('.finding-detail').forEach(function(d){
-    var show=true;
-    if(g && d.dataset.grade!==g) show=false;
-    if(cat && d.dataset.cat!==cat) show=false;
-    if(dom && d.dataset.domain!==dom) show=false;
-    if(!show) d.style.display='none';
-  });
+  document.querySelectorAll('.finding-detail').forEach(function(d){d.style.display='none'});
 }
 
 /* ── BUILD DOMAINS TAB ───────────────────────────────────── */
@@ -542,13 +584,46 @@ function renderCharts(){
   });
 }
 
+/* ── GLOBAL SEARCH ───────────────────────────────────────── */
+function globalFilter(q){
+  q=q.toLowerCase().trim();
+  // Filter domain cards
+  document.querySelectorAll('.dcard').forEach(function(card){
+    var text=(card.textContent||'').toLowerCase();
+    card.style.display=(!q||text.indexOf(q)>=0)?'':'none';
+  });
+  // Filter finding rows
+  document.querySelectorAll('.finding-row').forEach(function(row){
+    var text=(row.textContent||'').toLowerCase();
+    row.style.display=(!q||text.indexOf(q)>=0)?'':'none';
+  });
+  // Filter remediation cards
+  document.querySelectorAll('.fcard').forEach(function(card){
+    var text=(card.textContent||'').toLowerCase();
+    card.style.display=(!q||text.indexOf(q)>=0)?'':'none';
+  });
+  // Filter heatmap rows
+  document.querySelectorAll('.hm .r').forEach(function(r){
+    var text=(r.textContent||'').toLowerCase();
+    var show=(!q||text.indexOf(q)>=0);
+    r.style.display=show?'':'none';
+    // Also hide corresponding cells in the same grid row
+    var idx=Array.from(r.parentNode.children).indexOf(r);
+    // heatmap cells follow each row label
+  });
+  // Hide detail rows when searching
+  document.querySelectorAll('.finding-detail').forEach(function(d){d.style.display='none'});
+}
+
 /* ── INIT ────────────────────────────────────────────────── */
 (function(){
   if(!D){document.querySelector('.page').innerHTML='<p style="padding:40px;color:#f87171">Error: No audit data found.</p>';return}
 
-  // Update tab counts
-  tabs[1].count=D.allChecks.length;
-  tabs[3].count=D.findings.length;
+  // Update tab counts with meaningful numbers
+  var failCount=D.allChecks.filter(function(c){return c.grade==='FAIL'}).length;
+  var warnCount=D.allChecks.filter(function(c){return c.grade==='WARN'}).length;
+  tabs[1].count=failCount+warnCount;  // Findings = things needing attention
+  tabs[3].count=D.findings.length;     // Remediations = those with fix steps
 
   // Build tab bar
   var tb=document.getElementById('tabBar'),th='';
