@@ -35,36 +35,31 @@ No API keys required. No accounts. No configuration. Just `pip install` and go.
 
 ## Quick start
 
-### 1. Prerequisites
+### 1. Install
 
-| | Windows | macOS | Linux |
-|---|---------|-------|-------|
-| **Git** | [git-scm.com](https://git-scm.com/downloads/win) — reopen PowerShell after | `brew install git` | `sudo apt install git` |
-| **Python 3.10+** | Search **"Python"** in Microsoft Store | `brew install python` | `sudo apt install python3 python3-pip python3-venv` |
+**You need [Python 3.10+](https://www.python.org/downloads/)** (Windows: search "Python" in the Microsoft Store).
 
-### 2. Install
+Then one command:
 
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/wblv-dev/domain-security-toolkit
-cd domain-security-toolkit
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install .
+```bash
+pip install git+https://github.com/wblv-dev/domain-security-toolkit
 ```
 
-**macOS / Linux:**
+That's it. No cloning, no virtual environments, no build steps.
+
+<details>
+<summary>Alternative: install from source (for development/contributing)</summary>
+
 ```bash
 git clone https://github.com/wblv-dev/domain-security-toolkit
 cd domain-security-toolkit
 python3 -m venv .venv
-source .venv/bin/activate
-pip install .
+source .venv/bin/activate    # Windows: .venv\Scripts\Activate.ps1
+pip install -e .
 ```
+</details>
 
-> **PowerShell error?** Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
-
-### 3. Audit
+### 2. Audit
 
 ```bash
 domain-audit --domains yourdomain.com
@@ -241,12 +236,12 @@ domain-dashboard                              Interactive data explorer (Dataset
 
 | Problem | Fix |
 |---------|-----|
-| `domain-audit: command not found` | Activate your venv first (`.venv\Scripts\Activate.ps1` or `source .venv/bin/activate`) |
-| `python: command not found` | Install Python — see [prerequisites](#1-prerequisites) |
-| `git: command not found` | Install Git and reopen your terminal |
-| `Activate.ps1 cannot be loaded` | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
+| `domain-audit: command not found` | Ensure pip install completed successfully. Try `python -m domain_audit --domains example.com` as a fallback. |
+| `pip: command not found` | Install Python first — see [step 1](#1-install) |
+| `pip install` fails with permission error | Use `pip install --user git+https://...` or run in a virtual environment |
 | Report looks broken | Open in Chrome, Firefox, or Edge (not Internet Explorer) |
 | Slow on many domains | `domain-audit --domains ... --concurrency 10` |
+| Crash or unexpected error | Check `domain-audit-error.log` — attach it when opening a [GitHub issue](https://github.com/wblv-dev/domain-security-toolkit/issues) |
 
 ---
 
