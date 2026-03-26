@@ -6,72 +6,66 @@
 <title>Security Audit Report</title>
 <script>/*CHARTJS_PLACEHOLDER*/</script>
 <style>
-/* ── Reset ──────────────────────────────────────────────── */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  background:#0a0e1a;color:#e2e8f0;line-height:1.5;min-height:100vh}
+  background:#0a0e1a;color:#e2e8f0;line-height:1.5}
+a{color:#60a5fa;text-decoration:none}
+a:hover{text-decoration:underline}
 
-/* ── Layout ─────────────────────────────────────────────── */
-.page{max-width:1400px;margin:0 auto;padding:24px}
-.grid{display:grid;gap:20px}
-.grid-2{grid-template-columns:1fr 1fr}
-.grid-3{grid-template-columns:1fr 1fr 1fr}
-.grid-4{grid-template-columns:1fr 1fr 1fr 1fr}
-@media(max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+/* Layout */
+.page{max-width:1400px;margin:0 auto;padding:20px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g4{grid-template-columns:1fr 1fr 1fr 1fr}
+@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
 
-/* ── Header ─────────────────────────────────────────────── */
-.header{background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;
-  padding:32px 40px;margin-bottom:24px;position:relative;overflow:hidden}
-.header::after{content:'';position:absolute;top:-50%;right:-10%;width:300px;height:300px;
-  background:radial-gradient(circle,rgba(99,102,241,.15),transparent 70%);border-radius:50%}
-.header h1{font-size:2em;font-weight:700;margin-bottom:4px}
-.header .subtitle{color:#94a3b8;font-size:.95em}
-.header .compliance-score{position:absolute;right:40px;top:50%;transform:translateY(-50%);
-  text-align:center}
-.header .compliance-score .number{font-size:3.5em;font-weight:800;
+/* Header */
+.hdr{background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;
+  padding:28px 36px;margin-bottom:20px;display:flex;justify-content:space-between;
+  align-items:center;flex-wrap:wrap;gap:16px;position:relative;overflow:hidden}
+.hdr::after{content:'';position:absolute;top:-40%;right:-5%;width:250px;height:250px;
+  background:radial-gradient(circle,rgba(99,102,241,.12),transparent 70%);border-radius:50%}
+.hdr h1{font-size:1.8em;font-weight:700}
+.hdr .sub{color:#94a3b8;font-size:.9em}
+.score-hero{text-align:center}
+.score-hero .num{font-size:3.2em;font-weight:800;
   background:linear-gradient(135deg,#34d399,#3b82f6);-webkit-background-clip:text;
   -webkit-text-fill-color:transparent;background-clip:text}
-.header .compliance-score .label{color:#94a3b8;font-size:.85em}
+.score-hero .lbl{color:#94a3b8;font-size:.82em}
 
-/* ── Section headers ────────────────────────────────────── */
-.section-title{font-size:1.1em;font-weight:700;color:#60a5fa;text-transform:uppercase;
-  letter-spacing:1.5px;margin:32px 0 16px;padding-bottom:8px;
-  border-bottom:2px solid rgba(96,165,250,.2)}
+/* Tabs */
+.tabs{display:flex;gap:2px;border-bottom:2px solid #1f2937;margin-bottom:24px;overflow-x:auto}
+.tab{padding:10px 20px;background:transparent;border:none;color:#64748b;font-size:.88em;
+  font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;
+  transition:all .2s}
+.tab:hover{color:#e2e8f0;background:rgba(255,255,255,.03)}
+.tab.active{color:#60a5fa;border-bottom-color:#60a5fa}
+.tab .count{background:#dc2626;color:#fff;font-size:.7em;padding:1px 6px;border-radius:8px;margin-left:4px}
+.panel{display:none;animation:fadeIn .25s ease}
+.panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-/* ── Cards ──────────────────────────────────────────────── */
-.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:24px;
-  transition:border-color .2s}
+/* Cards */
+.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:20px;transition:border-color .2s}
 .card:hover{border-color:#374151}
-.card-title{font-size:.75em;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:8px}
+.card-title{font-size:.72em;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:6px}
 
-/* ── KPI cards ──────────────────────────────────────────── */
-.kpi{text-align:center;padding:28px 20px}
-.kpi .value{font-size:2.8em;font-weight:800;line-height:1}
-.kpi .label{font-size:.8em;color:#94a3b8;margin-top:6px;text-transform:uppercase;letter-spacing:.5px}
-.kpi.green .value{color:#34d399}
-.kpi.amber .value{color:#fbbf24}
-.kpi.red .value{color:#f87171}
-.kpi.blue .value{color:#60a5fa}
+/* KPI - clickable */
+.kpi{text-align:center;padding:24px 16px;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.kpi .val{font-size:2.6em;font-weight:800;line-height:1}
+.kpi .lbl{font-size:.78em;color:#94a3b8;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.kpi .hint{font-size:.7em;color:#475569;margin-top:2px}
+.kpi.green .val{color:#34d399} .kpi.amber .val{color:#fbbf24}
+.kpi.red .val{color:#f87171} .kpi.blue .val{color:#60a5fa}
 
-/* ── Risk heatmap ───────────────────────────────────────── */
-.heatmap{display:grid;grid-template-columns:auto repeat(4,1fr);gap:2px;font-size:.75em;text-align:center}
-.heatmap .cell{padding:10px 8px;border-radius:6px;font-weight:600}
-.heatmap .header-cell{color:#64748b;padding:8px;font-weight:600}
-.heatmap .label-cell{color:#94a3b8;padding:10px 12px;text-align:right;display:flex;align-items:center;justify-content:flex-end}
-.heat-green{background:rgba(52,211,153,.2);color:#34d399}
-.heat-amber{background:rgba(251,191,36,.2);color:#fbbf24}
-.heat-red{background:rgba(248,113,113,.2);color:#f87171}
-.heat-darkred{background:rgba(220,38,38,.3);color:#fca5a5}
+/* Section titles */
+.stitle{font-size:1em;font-weight:700;color:#60a5fa;text-transform:uppercase;
+  letter-spacing:1.2px;margin:28px 0 14px;padding-bottom:6px;border-bottom:2px solid rgba(96,165,250,.15)}
 
-/* ── Progress bars ──────────────────────────────────────── */
-.progress-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.progress-row .label{width:140px;font-size:.85em;color:#94a3b8;text-align:right;flex-shrink:0}
-.progress-track{flex:1;height:28px;background:#1f2937;border-radius:14px;overflow:hidden;display:flex}
-.progress-segment{height:100%;transition:width .6s ease}
-.progress-row .score{width:50px;font-size:.85em;color:#94a3b8;text-align:right}
-
-/* ── Badges ─────────────────────────────────────────────── */
-.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.75em;font-weight:600;white-space:nowrap}
+/* Badges */
+.badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.73em;font-weight:600;white-space:nowrap}
 .badge-success{background:rgba(52,211,153,.15);color:#34d399}
 .badge-warning{background:rgba(251,191,36,.15);color:#fbbf24}
 .badge-danger{background:rgba(248,113,113,.15);color:#f87171}
@@ -81,226 +75,448 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .badge-medium{background:rgba(251,191,36,.15);color:#fbbf24}
 .badge-low{background:rgba(96,165,250,.15);color:#60a5fa}
 
-/* ── Domain cards ───────────────────────────────────────── */
-.domain-card{background:#111827;border:1px solid #1f2937;border-radius:12px;overflow:hidden;margin-bottom:16px}
-.domain-header{padding:20px 24px;display:flex;align-items:center;justify-content:space-between;
-  cursor:pointer;transition:background .2s}
-.domain-header:hover{background:#1a2332}
-.domain-header h3{font-size:1em;font-weight:600}
-.domain-badges{display:flex;gap:6px;flex-wrap:wrap}
-.domain-chart{width:80px;height:80px;flex-shrink:0}
-.domain-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
-.domain-card.open .domain-body{max-height:5000px}
-.domain-body-inner{padding:0 24px 24px}
-.chevron{transition:transform .3s;color:#64748b;font-size:.8em}
-.domain-card.open .chevron{transform:rotate(180deg)}
+/* Progress bars */
+.pbar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pbar-row .lbl{width:130px;font-size:.82em;color:#94a3b8;text-align:right;flex-shrink:0}
+.pbar-track{flex:1;height:24px;background:#1f2937;border-radius:12px;overflow:hidden;display:flex}
+.pbar-seg{height:100%;transition:width .5s ease}
+.pbar-row .score{width:45px;font-size:.82em;color:#94a3b8;text-align:right}
 
-/* ── Finding cards ──────────────────────────────────────── */
-.finding{background:#111827;border-left:4px solid;border-radius:0 12px 12px 0;padding:20px 24px;margin-bottom:12px}
-.finding.critical{border-color:#dc2626}
-.finding.high{border-color:#f97316}
-.finding.medium{border-color:#eab308}
-.finding.low{border-color:#3b82f6}
-.finding-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
-.finding-domain{font-weight:600;color:#e2e8f0}
-.finding-check{color:#94a3b8}
-.finding-risk{color:#94a3b8;font-size:.9em;margin-bottom:10px;line-height:1.6}
-.finding-steps{list-style:none;counter-reset:step}
-.finding-steps li{counter-increment:step;padding:6px 0 6px 32px;position:relative;font-size:.9em;color:#cbd5e1}
-.finding-steps li::before{content:counter(step);position:absolute;left:0;width:22px;height:22px;
-  background:#1e293b;border-radius:50%;text-align:center;line-height:22px;font-size:.75em;
-  font-weight:700;color:#60a5fa}
+/* Heatmap */
+.hm{display:grid;gap:3px;font-size:.78em;text-align:center}
+.hm .c{padding:10px 6px;border-radius:6px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.hm .c:hover{opacity:.8}
+.hm .h{color:#475569;padding:8px;font-weight:600}
+.hm .r{color:#94a3b8;padding:10px 10px;text-align:right;display:flex;align-items:center;justify-content:flex-end;font-weight:500}
+.hg{background:rgba(52,211,153,.2);color:#34d399}
+.ha{background:rgba(251,191,36,.2);color:#fbbf24}
+.hr{background:rgba(248,113,113,.2);color:#f87171}
+.hi{background:rgba(96,165,250,.12);color:#60a5fa}
 
-/* ── Tables ─────────────────────────────────────────────── */
+/* Domain cards */
+.dcard{background:#111827;border:1px solid #1f2937;border-radius:12px;margin-bottom:12px;overflow:hidden}
+.dcard-hdr{padding:16px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:background .15s}
+.dcard-hdr:hover{background:#1a2332}
+.dcard-hdr h3{font-size:.95em;font-weight:600;flex:1}
+.dcard-badges{display:flex;gap:5px;flex-wrap:wrap}
+.dcard-chart{width:70px;height:70px;flex-shrink:0}
+.dcard-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.dcard.open .dcard-body{max-height:8000px}
+.dcard-inner{padding:0 20px 20px}
+.chev{transition:transform .3s;color:#475569;font-size:.75em}
+.dcard.open .chev{transform:rotate(180deg)}
+
+/* Findings */
+.fcard{background:#111827;border-left:4px solid;border-radius:0 12px 12px 0;padding:18px 22px;margin-bottom:10px}
+.fcard.p-critical{border-color:#dc2626} .fcard.p-high{border-color:#f97316}
+.fcard.p-medium{border-color:#eab308} .fcard.p-low{border-color:#3b82f6}
+.fcard-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.fcard-risk{color:#94a3b8;font-size:.88em;line-height:1.5;margin-bottom:8px}
+.fcard ol{padding-left:24px;color:#cbd5e1;font-size:.88em}
+.fcard ol li{padding:3px 0}
+
+/* Tables */
 table{width:100%;border-collapse:collapse}
-th{background:#0f172a;color:#64748b;padding:10px 14px;text-align:left;font-size:.75em;
+th{background:#0f172a;color:#64748b;padding:9px 12px;text-align:left;font-size:.73em;
   font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1f2937}
-td{padding:10px 14px;border-bottom:1px solid #1f2937;font-size:.85em;color:#cbd5e1}
+td{padding:9px 12px;border-bottom:1px solid #1f2937;font-size:.83em;color:#cbd5e1}
 tr:hover td{background:rgba(255,255,255,.02)}
-code{font-family:'SF Mono',Monaco,Consolas,monospace;background:#1e293b;padding:2px 6px;
-  border-radius:4px;font-size:.82em;color:#93c5fd}
+code{font-family:'SF Mono',Monaco,Consolas,monospace;background:#1e293b;padding:1px 5px;
+  border-radius:4px;font-size:.8em;color:#93c5fd}
 
-/* ── Collapsible ────────────────────────────────────────── */
-.collapse-btn{background:#1e293b;border:1px solid #374151;color:#94a3b8;padding:8px 16px;
-  border-radius:8px;cursor:pointer;font-size:.85em;width:100%;text-align:left;margin-top:12px;
-  transition:all .2s}
-.collapse-btn:hover{background:#374151;color:#e2e8f0}
-.collapse-content{max-height:0;overflow:hidden;transition:max-height .4s ease}
-.collapse-content.open{max-height:10000px}
+/* Collapsible detail */
+.coll-btn{background:#1e293b;border:1px solid #374151;color:#94a3b8;padding:8px 16px;
+  border-radius:8px;cursor:pointer;font-size:.83em;width:100%;text-align:left;margin-top:10px;transition:all .15s}
+.coll-btn:hover{background:#374151;color:#e2e8f0}
+.coll-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.coll-body.open{max-height:20000px}
 
-/* ── Tooltip ────────────────────────────────────────────── */
+/* Diff */
+.diff-item{padding:8px 14px;border-radius:8px;margin-bottom:6px;font-size:.88em;display:flex;align-items:center;gap:8px}
+.diff-regression{background:rgba(248,113,113,.1);border-left:3px solid #dc2626}
+.diff-improvement{background:rgba(52,211,153,.1);border-left:3px solid #059669}
+.diff-dns{background:rgba(96,165,250,.1);border-left:3px solid #3b82f6}
+
+/* Tooltip */
 .tip{position:relative;border-bottom:1px dotted #4b5563;cursor:help}
 .tip:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:0;
   background:#1e293b;border:1px solid #374151;color:#cbd5e1;padding:8px 12px;border-radius:8px;
-  font-size:.8em;max-width:300px;width:max-content;z-index:100;line-height:1.4;
+  font-size:.78em;max-width:280px;width:max-content;z-index:100;line-height:1.4;
   box-shadow:0 4px 12px rgba(0,0,0,.4);font-weight:400;white-space:normal}
 
-/* ── Footer ─────────────────────────────────────────────── */
-.footer{text-align:center;padding:40px;color:#475569;font-size:.8em;margin-top:40px;
-  border-top:1px solid #1f2937}
-.footer a{color:#60a5fa;text-decoration:none}
+/* Filter bar */
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.filter-bar select,.filter-bar input{background:#111827;border:1px solid #374151;color:#e2e8f0;
+  padding:8px 12px;border-radius:8px;font-size:.85em}
+.filter-bar select:focus,.filter-bar input:focus{border-color:#60a5fa;outline:none}
 
-/* ── Print ──────────────────────────────────────────────── */
+/* Footer */
+.footer{text-align:center;padding:36px;color:#475569;font-size:.78em;margin-top:36px;border-top:1px solid #1f2937}
+.footer a{color:#60a5fa}
+
+/* Print */
 @media print{
-  body{background:#fff;color:#1a1a2e}
-  .card,.domain-card,.finding{background:#f8fafc;border-color:#e2e8f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .header{background:#1e293b!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .domain-body{max-height:none!important}
-  .collapse-content{max-height:none!important}
+  body{background:#fff;color:#1a1a2e;font-size:11px}
+  .card,.dcard,.fcard{background:#f8fafc;border-color:#e2e8f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .hdr{background:#1e293b!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .dcard-body,.coll-body{max-height:none!important}
   th{background:#f1f5f9;color:#334155}
   td{color:#334155;border-color:#e2e8f0}
-  .section-title{color:#1e40af}
+  .tabs,.filter-bar{display:none}
+  .panel{display:block!important}
+  .stitle{color:#1e40af;page-break-before:auto}
+  .fcard,.dcard{page-break-inside:avoid}
   code{background:#f1f5f9;color:#1e40af}
-  .page{max-width:100%}
-  .section-title{page-break-before:auto}
-  .finding,.domain-card{page-break-inside:avoid}
+  .page{max-width:100%;padding:10px}
 }
 </style>
 </head>
 <body>
 <div class="page">
 
-<!-- ── HEADER ──────────────────────────────────────────── -->
-<div class="header">
+<!-- Header -->
+<div class="hdr">
   <div>
     <h1>Security Audit Report</h1>
-    <div class="subtitle">{{GENERATED}} &middot; {{DOMAIN_COUNT}} domains audited &middot; {{TOTAL_RECORDS}} DNS records</div>
+    <div class="sub" id="headerSub"></div>
   </div>
-  <div class="compliance-score">
-    <div class="number">{{COMPLIANCE_PCT}}%</div>
-    <div class="label">Compliant</div>
-  </div>
-</div>
-
-<!-- ── KPI CARDS ───────────────────────────────────────── -->
-<div class="grid grid-4">
-  <div class="card kpi blue">
-    <div class="value">{{DOMAIN_COUNT}}</div>
-    <div class="label">Domains Audited</div>
-  </div>
-  <div class="card kpi green">
-    <div class="value">{{PASS_COUNT}}</div>
-    <div class="label">Checks Passed</div>
-  </div>
-  <div class="card kpi amber">
-    <div class="value">{{WARN_COUNT}}</div>
-    <div class="label">Warnings</div>
-  </div>
-  <div class="card kpi red">
-    <div class="value">{{FAIL_COUNT}}</div>
-    <div class="label">Critical Failures</div>
+  <div class="score-hero">
+    <div class="num" id="heroScore"></div>
+    <div class="lbl">Compliant</div>
   </div>
 </div>
 
-<!-- ── RISK OVERVIEW ───────────────────────────────────── -->
-<div class="section-title">Risk Overview</div>
-<div class="grid grid-2">
-  <div class="card">
-    <div class="card-title">Compliance Distribution</div>
-    <div style="max-width:320px;margin:0 auto">
-      <canvas id="complianceDonut" height="280"></canvas>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-title">Category Scores</div>
-    <div style="padding-top:20px">
-      {{CATEGORY_BARS}}
-    </div>
-  </div>
-</div>
+<!-- Tabs -->
+<div class="tabs" id="tabBar"></div>
 
-<!-- ── RISK HEATMAP ────────────────────────────────────── -->
-<div class="section-title">Risk Matrix</div>
-<div class="card">
-  <div class="card-title">Findings by Domain &amp; Category</div>
-  <div style="overflow-x:auto;margin-top:12px">
-    {{HEATMAP}}
-  </div>
-</div>
+<!-- Panels populated by JS -->
+<div id="panels"></div>
 
-<!-- ── PER-DOMAIN RESULTS ──────────────────────────────── -->
-<div class="section-title">Domain Results</div>
-{{DOMAIN_CARDS}}
-
-<!-- ── FINDINGS & REMEDIATIONS ─────────────────────────── -->
-<div class="section-title">Findings &amp; Remediations <span class="badge badge-danger">{{FINDING_COUNT}}</span></div>
-{{FINDINGS}}
-
-<!-- ── DETAILED RESULTS ────────────────────────────────── -->
-<div class="section-title">Detailed Check Results</div>
-{{DETAIL_SECTIONS}}
-
-<!-- ── FOOTER ──────────────────────────────────────────── -->
+<!-- Footer -->
 <div class="footer">
   Generated by <a href="https://github.com/wblv-dev/cloudflare-reporting">cloudflare-reporting</a>
   &middot; Read-only &mdash; no changes made to any zone.
 </div>
 
-</div><!-- /.page -->
+</div>
 
 <script>
-var AUDIT_DATA = {{AUDIT_JSON}};
+/* ── DATA (injected by Python) ───────────────────────────── */
+var D = /*AUDIT_DATA*/null;
 
-/* ── Compliance donut ──────────────────────────────────── */
-(function(){
-  var ctx = document.getElementById('complianceDonut');
-  if (!ctx || typeof Chart === 'undefined') return;
-  new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Passed', 'Warnings', 'Failures', 'Informational'],
-      datasets: [{
-        data: [AUDIT_DATA.pass, AUDIT_DATA.warn, AUDIT_DATA.fail, AUDIT_DATA.info],
-        backgroundColor: ['#059669','#d97706','#dc2626','#3b82f6'],
-        borderWidth: 0,
-        hoverBorderWidth: 2,
-        hoverBorderColor: '#e2e8f0'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      cutout: '65%',
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {color:'#94a3b8', padding:14, font:{size:12}, usePointStyle:true, pointStyle:'circle'}
-        },
-        tooltip: {
-          backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#e2e8f0',
-          borderColor: '#334155', borderWidth: 1, cornerRadius: 8
-        }
-      }
+/* ── HELPERS ─────────────────────────────────────────────── */
+var GC = {PASS:'badge-success',WARN:'badge-warning',FAIL:'badge-danger',INFO:'badge-info'};
+var GP = {Critical:'p-critical',High:'p-high',Medium:'p-medium',Low:'p-low'};
+var PB = {Critical:'badge-critical',High:'badge-high',Medium:'badge-medium',Low:'badge-low'};
+function badge(g,txt){return '<span class="badge '+(GC[g]||'badge-info')+'">'+(txt||g)+'</span>'}
+function esc(s){if(s==null)return'';var d=document.createElement('div');d.textContent=String(s);return d.innerHTML}
+function tip(label,tooltip){if(!tooltip)return esc(label);return '<span class="tip" data-tip="'+esc(tooltip)+'">'+esc(label)+'</span>'}
+function pct(n,t){return t?Math.round(n/t*100):0}
+
+/* ── TAB SYSTEM ──────────────────────────────────────────── */
+var tabs = [
+  {id:'summary', label:'Executive Summary'},
+  {id:'findings', label:'Findings', count:0},
+  {id:'domains', label:'Domains'},
+  {id:'remediation', label:'Remediations', count:0},
+  {id:'history', label:'Changes'}
+];
+
+function switchTab(id, filter){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset.tab===id)});
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+id)});
+  if(filter && id==='findings') applyFindingsFilter(filter);
+}
+
+/* ── BUILD EXECUTIVE SUMMARY ─────────────────────────────── */
+function buildSummary(){
+  var total=D.grades.pass+D.grades.warn+D.grades.fail+D.grades.info;
+  var compPct=pct(D.grades.pass,total);
+
+  document.getElementById('heroScore').textContent=compPct+'%';
+  document.getElementById('headerSub').textContent=D.generated+' \u00B7 '+D.domains.length+' domains \u00B7 '+D.totalRecords+' DNS records';
+
+  var h='';
+  // KPI cards - clickable
+  h+='<div class="grid g4" style="margin-bottom:20px">';
+  h+='<div class="card kpi blue" onclick="switchTab(\'domains\')"><div class="val">'+D.domains.length+'</div><div class="lbl">Domains</div><div class="hint">Click to explore</div></div>';
+  h+='<div class="card kpi green" onclick="switchTab(\'findings\',\'PASS\')"><div class="val">'+D.grades.pass+'</div><div class="lbl">Passed</div><div class="hint">Click to view</div></div>';
+  h+='<div class="card kpi amber" onclick="switchTab(\'findings\',\'WARN\')"><div class="val">'+D.grades.warn+'</div><div class="lbl">Warnings</div><div class="hint">Click to view</div></div>';
+  h+='<div class="card kpi red" onclick="switchTab(\'findings\',\'FAIL\')"><div class="val">'+D.grades.fail+'</div><div class="lbl">Failures</div><div class="hint">Click to view</div></div>';
+  h+='</div>';
+
+  // Charts row
+  h+='<div class="grid g2">';
+  h+='<div class="card"><div class="card-title">Compliance Distribution</div><div style="max-width:300px;margin:0 auto"><canvas id="mainDonut" height="280"></canvas></div></div>';
+  h+='<div class="card"><div class="card-title">Category Scores</div><div style="padding-top:16px" id="catBars"></div></div>';
+  h+='</div>';
+
+  // Risk heatmap
+  h+='<div class="stitle">Risk Matrix</div>';
+  h+='<div class="card" id="heatmapCard"></div>';
+
+  // Top findings preview
+  var topFindings = D.findings.filter(function(f){return f.grade==='FAIL'}).slice(0,5);
+  if(topFindings.length){
+    h+='<div class="stitle">Top Failures</div>';
+    topFindings.forEach(function(f){
+      h+='<div class="fcard p-critical" style="cursor:pointer" onclick="switchTab(\'remediation\')">';
+      h+='<div class="fcard-hdr">'+badge(f.grade)+' <strong>'+esc(f.domain)+'</strong> &mdash; '+tip(f.check,D.tooltips[f.check]||'')+'</div>';
+      h+='<div class="fcard-risk">'+esc(f.risk||f.actual)+'</div></div>';
+    });
+  }
+
+  return h;
+}
+
+/* ── BUILD FINDINGS TAB ──────────────────────────────────── */
+function buildFindings(){
+  var h='';
+  h+='<div class="filter-bar">';
+  h+='<select id="filterGrade" onchange="applyFindingsFilter()"><option value="">All grades</option><option value="FAIL">FAIL</option><option value="WARN">WARN</option><option value="PASS">PASS</option><option value="INFO">INFO</option></select>';
+  h+='<select id="filterCat" onchange="applyFindingsFilter()"><option value="">All categories</option>';
+  var cats={};D.allChecks.forEach(function(c){cats[c.category]=1});
+  Object.keys(cats).sort().forEach(function(c){h+='<option value="'+esc(c)+'">'+esc(c)+'</option>'});
+  h+='</select>';
+  h+='<select id="filterDomain" onchange="applyFindingsFilter()"><option value="">All domains</option>';
+  D.domains.forEach(function(d){h+='<option value="'+esc(d)+'">'+esc(d)+'</option>'});
+  h+='</select>';
+  h+='</div>';
+  h+='<table><thead><tr><th>Domain</th><th>Category</th><th>Check</th><th>Recommended</th><th>Actual</th><th>Grade</th></tr></thead>';
+  h+='<tbody id="findingsBody">';
+  D.allChecks.forEach(function(c){
+    h+='<tr class="finding-row" data-grade="'+esc(c.grade)+'" data-cat="'+esc(c.category)+'" data-domain="'+esc(c.domain)+'">';
+    h+='<td><code>'+esc(c.domain)+'</code></td>';
+    h+='<td>'+esc(c.category)+'</td>';
+    h+='<td>'+tip(c.check,D.tooltips[c.check]||'')+'</td>';
+    h+='<td><code>'+esc(c.recommended||'\u2014')+'</code></td>';
+    h+='<td>'+esc(c.actual||'\u2014')+'</td>';
+    h+='<td>'+badge(c.grade)+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  return h;
+}
+
+function applyFindingsFilter(presetGrade){
+  var gSel=document.getElementById('filterGrade');
+  if(presetGrade){gSel.value=presetGrade}
+  var g=gSel.value, cat=document.getElementById('filterCat').value, dom=document.getElementById('filterDomain').value;
+  document.querySelectorAll('.finding-row').forEach(function(row){
+    var show=true;
+    if(g && row.dataset.grade!==g) show=false;
+    if(cat && row.dataset.cat!==cat) show=false;
+    if(dom && row.dataset.domain!==dom) show=false;
+    row.style.display=show?'':'none';
+  });
+}
+
+/* ── BUILD DOMAINS TAB ───────────────────────────────────── */
+function buildDomains(){
+  var h='';
+  D.domainData.forEach(function(dd,i){
+    h+='<div class="dcard" id="dcard'+i+'">';
+    h+='<div class="dcard-hdr" onclick="this.parentElement.classList.toggle(\'open\')">';
+    h+='<canvas class="dcard-chart" id="dDonut'+i+'" width="70" height="70"></canvas>';
+    h+='<h3>'+esc(dd.domain)+'</h3>';
+    h+='<div class="dcard-badges">';
+    dd.badges.forEach(function(b){h+=badge(b.grade,b.label+': '+b.grade)+' '});
+    h+='</div>';
+    h+='<span class="chev">&#9660;</span></div>';
+    h+='<div class="dcard-body"><div class="dcard-inner">';
+
+    // Detail table for this domain
+    h+='<table><thead><tr><th>Category</th><th>Check</th><th>Recommended</th><th>Actual</th><th>Grade</th></tr></thead><tbody>';
+    dd.checks.forEach(function(c){
+      h+='<tr><td>'+esc(c.category)+'</td><td>'+tip(c.check,D.tooltips[c.check]||'')+'</td>';
+      h+='<td><code>'+esc(c.recommended||'\u2014')+'</code></td>';
+      h+='<td>'+esc(c.actual||'\u2014')+'</td>';
+      h+='<td>'+badge(c.grade)+'</td></tr>';
+    });
+    h+='</tbody></table>';
+
+    // DNS records
+    if(dd.dnsRecords && dd.dnsRecords.length){
+      h+='<div class="stitle" style="margin-top:16px">DNS Records ('+dd.dnsRecords.length+')</div>';
+      h+='<table><thead><tr><th>Type</th><th>Name</th><th>Content</th><th>TTL</th></tr></thead><tbody>';
+      dd.dnsRecords.forEach(function(r){
+        h+='<tr><td><code>'+esc(r.type)+'</code></td><td><code>'+esc(r.name)+'</code></td>';
+        h+='<td><code>'+esc(r.content)+'</code></td><td>'+r.ttl+'</td></tr>';
+      });
+      h+='</tbody></table>';
     }
+    h+='</div></div></div>';
   });
+  return h;
+}
+
+/* ── BUILD REMEDIATIONS TAB ──────────────────────────────── */
+function buildRemediations(){
+  if(!D.findings.length) return '<div style="text-align:center;padding:60px;color:#64748b">No findings requiring remediation.</div>';
+  var h='';
+  var priorities=['Critical','High','Medium','Low'];
+  priorities.forEach(function(p){
+    var items=D.findings.filter(function(f){return f.priority===p});
+    if(!items.length)return;
+    h+='<div class="stitle">'+p+' Priority <span class="badge '+(PB[p]||'badge-info')+'">'+items.length+'</span></div>';
+    items.forEach(function(f){
+      h+='<div class="fcard '+(GP[p]||'')+'">';
+      h+='<div class="fcard-hdr">'+badge(f.grade)+' <span class="badge '+(PB[p]||'badge-info')+'">'+p+'</span> <strong>'+esc(f.domain)+'</strong> &mdash; '+tip(f.check,D.tooltips[f.check]||'')+'</div>';
+      h+='<div class="fcard-risk"><strong>Risk:</strong> '+esc(f.risk)+'</div>';
+      if(f.steps && f.steps.length){
+        h+='<div style="margin-bottom:4px;font-size:.85em;color:#94a3b8;font-weight:600">Steps to fix:</div>';
+        h+='<ol>';
+        f.steps.forEach(function(s){h+='<li>'+esc(s)+'</li>'});
+        h+='</ol>';
+      }
+      h+='</div>';
+    });
+  });
+  return h;
+}
+
+/* ── BUILD HISTORY/DIFF TAB ──────────────────────────────── */
+function buildHistory(){
+  if(!D.diff) return '<div style="text-align:center;padding:60px;color:#64748b">No previous run to compare. Run the audit again to see changes.</div>';
+  var d=D.diff, h='';
+  h+='<div class="card" style="margin-bottom:16px;padding:16px 20px"><strong>Comparing:</strong> Run #'+d.previous_run_id+' ('+esc(d.previous_run_date)+') &rarr; Run #'+d.current_run_id+' ('+esc(d.current_run_date)+')</div>';
+
+  var regs=d.changes.filter(function(c){return c.direction==='regression'});
+  var imps=d.changes.filter(function(c){return c.direction==='improvement'});
+  var dnsAdd=d.dns_changes.filter(function(c){return c.action==='added'});
+  var dnsRem=d.dns_changes.filter(function(c){return c.action==='removed'});
+
+  h+='<div class="grid g4" style="margin-bottom:20px">';
+  h+='<div class="card kpi red"><div class="val">'+regs.length+'</div><div class="lbl">Regressions</div></div>';
+  h+='<div class="card kpi green"><div class="val">'+imps.length+'</div><div class="lbl">Improvements</div></div>';
+  h+='<div class="card kpi blue"><div class="val">'+dnsAdd.length+'</div><div class="lbl">DNS Added</div></div>';
+  h+='<div class="card kpi amber"><div class="val">'+dnsRem.length+'</div><div class="lbl">DNS Removed</div></div>';
+  h+='</div>';
+
+  if(regs.length){
+    h+='<div class="stitle">Regressions</div>';
+    regs.forEach(function(c){
+      h+='<div class="diff-item diff-regression"><strong>'+esc(c.domain)+'</strong> '+esc(c.category)+'/'+esc(c.check)+': '+badge(c.old_grade)+' &rarr; '+badge(c.new_grade)+'</div>';
+    });
+  }
+  if(imps.length){
+    h+='<div class="stitle">Improvements</div>';
+    imps.forEach(function(c){
+      h+='<div class="diff-item diff-improvement"><strong>'+esc(c.domain)+'</strong> '+esc(c.category)+'/'+esc(c.check)+': '+badge(c.old_grade)+' &rarr; '+badge(c.new_grade)+'</div>';
+    });
+  }
+  if(dnsAdd.length||dnsRem.length){
+    h+='<div class="stitle">DNS Changes</div>';
+    dnsAdd.forEach(function(c){h+='<div class="diff-item diff-dns">+ <strong>'+esc(c.domain)+'</strong> '+esc(c.type)+' '+esc(c.name)+' &rarr; '+esc(c.content)+'</div>'});
+    dnsRem.forEach(function(c){h+='<div class="diff-item diff-dns">&minus; <strong>'+esc(c.domain)+'</strong> '+esc(c.type)+' '+esc(c.name)+' &rarr; '+esc(c.content)+'</div>'});
+  }
+
+  if(!regs.length && !imps.length && !dnsAdd.length && !dnsRem.length){
+    h+='<div style="text-align:center;padding:40px;color:#64748b">No changes since previous run.</div>';
+  }
+  return h;
+}
+
+/* ── BUILD CATEGORY BARS ─────────────────────────────────── */
+function buildCatBars(){
+  var el=document.getElementById('catBars');if(!el)return;
+  var h='';
+  D.categories.forEach(function(cat){
+    var t=cat.pass+cat.warn+cat.fail;if(!t)t=1;
+    h+='<div class="pbar-row"><div class="lbl">'+esc(cat.name)+'</div><div class="pbar-track">';
+    h+='<div class="pbar-seg" style="width:'+pct(cat.pass,t)+'%;background:#059669"></div>';
+    h+='<div class="pbar-seg" style="width:'+pct(cat.warn,t)+'%;background:#d97706"></div>';
+    h+='<div class="pbar-seg" style="width:'+pct(cat.fail,t)+'%;background:#dc2626"></div>';
+    h+='</div><div class="score">'+pct(cat.pass,t)+'%</div></div>';
+  });
+  el.innerHTML=h;
+}
+
+/* ── BUILD HEATMAP ───────────────────────────────────────── */
+function buildHeatmap(){
+  var el=document.getElementById('heatmapCard');if(!el)return;
+  var cats=D.categories.map(function(c){return c.name});
+  var cols=1+cats.length;
+  var h='<div class="hm" style="grid-template-columns:auto repeat('+cats.length+',1fr)">';
+  h+='<div class="h"></div>';
+  cats.forEach(function(c){h+='<div class="h">'+esc(c)+'</div>'});
+  D.domainData.forEach(function(dd){
+    h+='<div class="r">'+esc(dd.domain)+'</div>';
+    cats.forEach(function(cat){
+      var worst='PASS';
+      dd.checks.forEach(function(c){
+        if(c.category===cat){
+          var order={FAIL:0,WARN:1,INFO:2,PASS:3};
+          if((order[c.grade]||3)<(order[worst]||3)) worst=c.grade;
+        }
+      });
+      var cls={PASS:'hg',WARN:'ha',FAIL:'hr',INFO:'hi'}[worst]||'hi';
+      h+='<div class="c '+cls+'" onclick="switchTab(\'domains\')" title="'+esc(dd.domain)+' / '+esc(cat)+': '+worst+'">'+worst+'</div>';
+    });
+  });
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+/* ── CHARTS ──────────────────────────────────────────────── */
+function renderCharts(){
+  if(typeof Chart==='undefined')return;
+  // Main donut
+  var ctx=document.getElementById('mainDonut');
+  if(ctx){
+    new Chart(ctx,{type:'doughnut',
+      data:{labels:['Passed','Warnings','Failures','Info'],
+        datasets:[{data:[D.grades.pass,D.grades.warn,D.grades.fail,D.grades.info],
+          backgroundColor:['#059669','#d97706','#dc2626','#3b82f6'],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:true,cutout:'65%',
+        plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',padding:14,font:{size:11},usePointStyle:true,pointStyle:'circle'}},
+          tooltip:{backgroundColor:'#1e293b',titleColor:'#e2e8f0',bodyColor:'#e2e8f0',borderColor:'#334155',borderWidth:1,cornerRadius:8}}}
+    });
+  }
+  // Domain mini donuts
+  D.domainData.forEach(function(dd,i){
+    var c=document.getElementById('dDonut'+i);
+    if(!c)return;
+    new Chart(c,{type:'doughnut',
+      data:{labels:['Pass','Warn','Fail'],datasets:[{data:[dd.pass,dd.warn,dd.fail],backgroundColor:['#059669','#d97706','#dc2626'],borderWidth:0}]},
+      options:{responsive:false,plugins:{legend:{display:false},tooltip:{enabled:true}},cutout:'65%'}
+    });
+  });
+}
+
+/* ── INIT ────────────────────────────────────────────────── */
+(function(){
+  if(!D){document.querySelector('.page').innerHTML='<p style="padding:40px;color:#f87171">Error: No audit data found.</p>';return}
+
+  // Update tab counts
+  tabs[1].count=D.allChecks.length;
+  tabs[3].count=D.findings.length;
+
+  // Build tab bar
+  var tb=document.getElementById('tabBar'),th='';
+  tabs.forEach(function(t){
+    th+='<button class="tab" data-tab="'+t.id+'" onclick="switchTab(\''+t.id+'\')">'+t.label;
+    if(t.count) th+='<span class="count">'+t.count+'</span>';
+    th+='</button>';
+  });
+  tb.innerHTML=th;
+
+  // Build panels
+  var ph='';
+  ph+='<div class="panel" id="panel-summary">'+buildSummary()+'</div>';
+  ph+='<div class="panel" id="panel-findings">'+buildFindings()+'</div>';
+  ph+='<div class="panel" id="panel-domains">'+buildDomains()+'</div>';
+  ph+='<div class="panel" id="panel-remediation">'+buildRemediations()+'</div>';
+  ph+='<div class="panel" id="panel-history">'+buildHistory()+'</div>';
+  document.getElementById('panels').innerHTML=ph;
+
+  // Activate first tab
+  switchTab('summary');
+
+  // Render charts and dynamic elements
+  buildCatBars();
+  buildHeatmap();
+  setTimeout(renderCharts,50);
 })();
-
-/* ── Domain mini donuts ────────────────────────────────── */
-(AUDIT_DATA.domainCharts || []).forEach(function(d, i){
-  var ctx = document.getElementById('domainDonut' + i);
-  if (!ctx || typeof Chart === 'undefined') return;
-  new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Passed','Warnings','Failures'],
-      datasets: [{data: [d.pass, d.warn, d.fail], backgroundColor:['#059669','#d97706','#dc2626'], borderWidth:0}]
-    },
-    options: {responsive:false, plugins:{legend:{display:false}, tooltip:{enabled:true}}, cutout:'65%'}
-  });
-});
-
-/* ── Toggle domain detail ──────────────────────────────── */
-function toggleDomain(el){
-  var card = el.closest('.domain-card');
-  card.classList.toggle('open');
-}
-
-/* ── Toggle collapse sections ──────────────────────────── */
-function toggleCollapse(btn){
-  var content = btn.nextElementSibling;
-  content.classList.toggle('open');
-  btn.textContent = content.classList.contains('open') ? '▲ Hide details' : '▼ Show details';
-}
 </script>
 </body>
 </html>

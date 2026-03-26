@@ -56,6 +56,27 @@ def _ts() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _esc(s) -> str:
+    """HTML-escape untrusted content to prevent XSS."""
+    if s is None:
+        return ""
+    return html.escape(str(s))
+
+
+def _badge(grade: str, text: str = None) -> str:
+    cls = GRADE_CLASS.get(grade, "badge-info")
+    label = text or grade
+    return f'<span class="badge {cls}">{_esc(label)}</span>'
+
+
+def _tip(label: str) -> str:
+    """Wrap a label in a tooltip span if a tooltip exists."""
+    tooltip = get_tooltip(label)
+    if not tooltip:
+        return _esc(label)
+    return f'<span class="tip" data-tip="{_esc(tooltip)}">{_esc(label)}</span>'
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MARKDOWN
 # ══════════════════════════════════════════════════════════════════════════════
@@ -428,29 +449,107 @@ def write_csv(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# HTML
-# ══════════════════════════════════════════════════════════════════════════════
+# HTML — template-based, data injected as JSON
 
 import json as _json
 import os as _os
 
+from cloudflare_reporting.lib.remediation import collect_remediations, TOOLTIPS
+
 
 def _read_chartjs() -> str:
-    """Read the Chart.js UMD bundle from /tmp/chartjs.min.js."""
-    chartjs_path = _os.path.join("/tmp", "chartjs.min.js")
+    p = _os.path.join("/tmp", "chartjs.min.js")
     try:
-        with open(chartjs_path, "r", encoding="utf-8") as f:
+        with open(p, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        return "/* Chart.js not found at /tmp/chartjs.min.js */"
+        return "/* Chart.js not found — run: curl -o /tmp/chartjs.min.js https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js */"
 
 
 def _load_template() -> str:
-    """Load the HTML template from cloudflare_reporting/template.html."""
-    template_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
-    template_path = _os.path.join(template_dir, "template.html")
-    with open(template_path, "r", encoding="utf-8") as f:
+    d = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    with open(_os.path.join(d, "template.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+def _all_checks_list(domains, security_results, email_results, dns_sec_results,
+                     registrar_results, blacklist_results, rdns_results, email_std_results):
+    checks = []
+    for d in domains:
+        sec = security_results.get(d, {})
+        for r in sec.get("results", []):
+            checks.append({"domain": d, "category": "Zone Security", "check": r.get("label", ""),
+                           "recommended": r.get("recommended", ""), "actual": r.get("actual", ""), "grade": r.get("grade", "INFO")})
+        email = email_results.get(d, {})
+        for key, label in [("spf", "SPF"), ("dmarc", "DMARC")]:
+            e = email.get(key, {})
+            checks.append({"domain": d, "category": "Email", "check": label, "recommended": "",
+                           "actual": e.get("reason", ""), "grade": e.get("grade", "INFO")})
+        ds = dns_sec_results.get(d, {})
+        for key, label in [("dnssec", "DNSSEC"), ("caa", "CAA"), ("dangling", "Dangling CNAMEs")]:
+            c = ds.get(key, {})
+            checks.append({"domain": d, "category": "DNS Security", "check": label, "recommended": "",
+                           "actual": c.get("reason", ""), "grade": c.get("grade", "INFO")})
+        reg = registrar_results.get(d, {})
+        for key, label in [("expiry", "Domain expiry"), ("lock", "Transfer lock")]:
+            c = reg.get(key, {})
+            checks.append({"domain": d, "category": "Infrastructure", "check": label, "recommended": "",
+                           "actual": c.get("reason", ""), "grade": c.get("grade", "INFO")})
+        bl = blacklist_results.get(d, {})
+        checks.append({"domain": d, "category": "Infrastructure", "check": "Blacklist (DNSBL)", "recommended": "",
+                       "actual": bl.get("reason", ""), "grade": bl.get("grade", "INFO")})
+        rd = rdns_results.get(d, {})
+        checks.append({"domain": d, "category": "Infrastructure", "check": "Reverse DNS", "recommended": "",
+                       "actual": rd.get("reason", ""), "grade": rd.get("grade", "INFO")})
+        es = (email_std_results or {}).get(d, {})
+        for key, label in [("mta_sts", "MTA-STS"), ("tlsrpt", "TLSRPT"), ("bimi", "BIMI")]:
+            c = es.get(key, {})
+            checks.append({"domain": d, "category": "Email", "check": label, "recommended": "",
+                           "actual": c.get("reason", ""), "grade": c.get("grade", "INFO")})
+    return checks
+
+
+def _domain_data(domains, dns_results, security_results, email_results,
+                 dns_sec_results, registrar_results, blacklist_results,
+                 rdns_results, email_std_results, all_checks):
+    result = []
+    for d in domains:
+        dchecks = [c for c in all_checks if c["domain"] == d]
+        grades = [c["grade"] for c in dchecks]
+        p = sum(1 for g in grades if g == "PASS")
+        w = sum(1 for g in grades if g == "WARN")
+        f = sum(1 for g in grades if g == "FAIL")
+        email = email_results.get(d, {})
+        ds = dns_sec_results.get(d, {})
+        sec = security_results.get(d, {})
+        passed, total = sec.get("score", (0, 0))
+        badges = [
+            {"label": "Zone", "grade": f"{passed}/{total}" if total else "?"},
+            {"label": "SPF", "grade": email.get("spf", {}).get("grade", "?")},
+            {"label": "DMARC", "grade": email.get("dmarc", {}).get("grade", "?")},
+            {"label": "DNSSEC", "grade": ds.get("dnssec", {}).get("grade", "?")},
+        ]
+        dns = dns_results.get(d, {})
+        records = []
+        for r in sorted(dns.get("records", []), key=lambda x: (x.get("type", ""), x.get("name", ""))):
+            records.append({"type": r.get("type", ""), "name": r.get("name", ""),
+                           "content": r.get("content", "")[:80], "ttl": r.get("ttl", "")})
+        result.append({"domain": d, "pass": p, "warn": w, "fail": f,
+                       "badges": badges, "checks": dchecks, "dnsRecords": records})
+    return result
+
+
+def _category_data(all_checks):
+    cats = {}
+    for c in all_checks:
+        cat = c["category"]
+        if cat not in cats:
+            cats[cat] = {"name": cat, "pass": 0, "warn": 0, "fail": 0}
+        g = c["grade"]
+        if g == "PASS": cats[cat]["pass"] += 1
+        elif g == "WARN": cats[cat]["warn"] += 1
+        elif g == "FAIL": cats[cat]["fail"] += 1
+    return list(cats.values())
 
 
 def write_html(
@@ -464,824 +563,54 @@ def write_html(
     rdns_results: Dict[str, dict],
     email_std_results: Dict[str, dict] = None,
     output_path: str = "",
+    diff_result: dict = None,
 ) -> None:
-    _estd = email_std_results or {}
+    template = _load_template()
+    chartjs = _read_chartjs()
 
-    # Load template
-    tpl = _load_template()
-
-    # Read Chart.js
-    chartjs_src = _read_chartjs()
-
-    # Collect remediations
-    remediations = collect_remediations(
-        domains, security_results, email_results,
-        dns_sec_results, registrar_results, blacklist_results, rdns_results,
+    all_checks = _all_checks_list(
+        domains, security_results, email_results, dns_sec_results,
+        registrar_results, blacklist_results, rdns_results, email_std_results,
     )
+    grades = {
+        "pass": sum(1 for c in all_checks if c["grade"] == "PASS"),
+        "warn": sum(1 for c in all_checks if c["grade"] == "WARN"),
+        "fail": sum(1 for c in all_checks if c["grade"] == "FAIL"),
+        "info": sum(1 for c in all_checks if c["grade"] == "INFO"),
+    }
+    total_records = sum(dns_results.get(d, {}).get("total", 0) for d in domains)
 
-    # Aggregate grades across all domains
-    all_grades = _collect_all_grades(
-        domains, security_results, email_results,
-        dns_sec_results, registrar_results, blacklist_results, rdns_results,
-    )
-    total_pass = all_grades["PASS"]
-    total_warn = all_grades["WARN"]
-    total_fail = all_grades["FAIL"]
-    total_info = all_grades["INFO"]
-    total_checks = total_pass + total_warn + total_fail + total_info
-    compliance_pct = round(total_pass / total_checks * 100) if total_checks else 0
-
-    # Total DNS records
-    total_records = sum(
-        dns_results.get(d, {}).get("total", 0) for d in domains
-    )
-
-    # Category breakdown for stacked bars
-    cat_data = _category_breakdown(
-        domains, security_results, email_results,
-        dns_sec_results, registrar_results, blacklist_results, rdns_results,
-    )
-
-    # Per-domain grade data for mini donuts
-    domain_grades = {}
-    for d in domains:
-        dg = _collect_domain_grades(
-            d, security_results, email_results,
-            dns_sec_results, registrar_results, blacklist_results, rdns_results,
-        )
-        domain_grades[d] = dg
-
-    # Build dynamic HTML fragments
-    category_bars_html = _build_category_bars(cat_data)
-    heatmap_html = _build_heatmap(
-        domains, security_results, email_results,
-        dns_sec_results, registrar_results, blacklist_results, rdns_results,
-    )
-    domain_cards_html = _build_domain_cards(
-        domains, domain_grades, email_results, security_results,
-        dns_results, registrar_results, dns_sec_results,
-        blacklist_results, rdns_results,
-    )
-    findings_html = _build_findings(remediations)
-    detail_sections_html = _build_detail_sections(
-        domains, security_results, email_results, _estd,
+    domain_data = _domain_data(
+        domains, dns_results, security_results, email_results,
         dns_sec_results, registrar_results, blacklist_results,
-        rdns_results, dns_results,
+        rdns_results, email_std_results, all_checks,
+    )
+    findings = collect_remediations(
+        domains, security_results, email_results, dns_sec_results,
+        registrar_results, blacklist_results, rdns_results,
     )
 
-    # Build audit JSON for Chart.js
-    domain_chart_list = []
-    for d in domains:
-        dg = domain_grades.get(d, {})
-        domain_chart_list.append({
-            "pass": dg.get("PASS", 0),
-            "warn": dg.get("WARN", 0),
-            "fail": dg.get("FAIL", 0),
-        })
-    audit_json = _json.dumps({
-        "pass": total_pass,
-        "warn": total_warn,
-        "fail": total_fail,
-        "info": total_info,
-        "domainCharts": domain_chart_list,
-    })
+    audit_data = {
+        "generated": _ts(),
+        "domains": domains,
+        "totalRecords": total_records,
+        "grades": grades,
+        "allChecks": all_checks,
+        "domainData": domain_data,
+        "categories": _category_data(all_checks),
+        "findings": findings,
+        "tooltips": TOOLTIPS,
+        "diff": diff_result,
+    }
 
-    # Replace placeholders in template
-    out = tpl
-    out = out.replace("/*CHARTJS_PLACEHOLDER*/", chartjs_src)
-    out = out.replace("{{GENERATED}}", _esc(_ts()))
-    out = out.replace("{{DOMAIN_COUNT}}", str(len(domains)))
-    out = out.replace("{{TOTAL_RECORDS}}", str(total_records))
-    out = out.replace("{{COMPLIANCE_PCT}}", str(compliance_pct))
-    out = out.replace("{{PASS_COUNT}}", str(total_pass))
-    out = out.replace("{{WARN_COUNT}}", str(total_warn))
-    out = out.replace("{{FAIL_COUNT}}", str(total_fail))
-    out = out.replace("{{CATEGORY_BARS}}", category_bars_html)
-    out = out.replace("{{HEATMAP}}", heatmap_html)
-    out = out.replace("{{DOMAIN_CARDS}}", domain_cards_html)
-    out = out.replace("{{FINDING_COUNT}}", str(len(remediations)))
-    out = out.replace("{{FINDINGS}}", findings_html)
-    out = out.replace("{{DETAIL_SECTIONS}}", detail_sections_html)
-    out = out.replace("{{AUDIT_JSON}}", audit_json)
+    # Escape data for safe embedding inside <script> tag — prevents XSS via </script> injection
+    json_str = _json.dumps(audit_data, default=str)
+    json_str = json_str.replace("<", "\\u003c").replace(">", "\\u003e")
+
+    html = template.replace("/*CHARTJS_PLACEHOLDER*/", chartjs)
+    html = html.replace("/*AUDIT_DATA*/null", json_str)
 
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(out)
+        f.write(html)
 
     print(f"  HTML report     \u2192 {output_path}")
-
-
-# ── Helpers (must remain exactly as-is) ──────────────────────────────────────
-
-def _esc(s) -> str:
-    """HTML-escape untrusted content to prevent XSS."""
-    if s is None:
-        return ""
-    return html.escape(str(s))
-
-
-def _badge(grade: str, text: str = None) -> str:
-    cls  = GRADE_CLASS.get(grade, "badge-info")
-    label = text or grade
-    return f'<span class="badge {cls}">{_esc(label)}</span>'
-
-
-def _tip(label: str) -> str:
-    """Wrap a label in a tooltip span if a tooltip exists for it."""
-    tooltip_text = get_tooltip(label)
-    if tooltip_text:
-        return (
-            f'<span class="has-tooltip" data-tooltip="{_esc(tooltip_text)}">'
-            f'{_esc(label)}</span>'
-        )
-    return _esc(label)
-
-
-# ── Grade aggregation helpers ────────────────────────────────────────────────
-
-def _collect_all_grades(
-    domains, security_results, email_results,
-    dns_sec_results, registrar_results, blacklist_results, rdns_results,
-) -> dict:
-    """Count PASS/WARN/FAIL/INFO across every check on every domain."""
-    counts = {"PASS": 0, "WARN": 0, "FAIL": 0, "INFO": 0}
-    for d in domains:
-        dg = _collect_domain_grades(
-            d, security_results, email_results,
-            dns_sec_results, registrar_results, blacklist_results, rdns_results,
-        )
-        for k in counts:
-            counts[k] += dg.get(k, 0)
-    return counts
-
-
-def _collect_domain_grades(
-    domain, security_results, email_results,
-    dns_sec_results, registrar_results, blacklist_results, rdns_results,
-) -> dict:
-    """Count PASS/WARN/FAIL/INFO for a single domain."""
-    counts = {"PASS": 0, "WARN": 0, "FAIL": 0, "INFO": 0}
-
-    def _inc(grade: str) -> None:
-        counts[grade] = counts.get(grade, 0) + 1
-
-    sec = security_results.get(domain)
-    if sec:
-        for r in sec.get("results", []):
-            _inc(r.get("grade", "INFO"))
-
-    email = email_results.get(domain, {})
-    for key in ("spf", "dmarc"):
-        _inc(email.get(key, {}).get("grade", "INFO"))
-
-    ds = dns_sec_results.get(domain, {})
-    for key in ("dnssec", "caa", "dangling"):
-        _inc(ds.get(key, {}).get("grade", "INFO"))
-
-    reg = registrar_results.get(domain, {})
-    for key in ("expiry", "lock"):
-        _inc(reg.get(key, {}).get("grade", "INFO"))
-
-    _inc(blacklist_results.get(domain, {}).get("grade", "INFO"))
-    _inc(rdns_results.get(domain, {}).get("grade", "INFO"))
-
-    return counts
-
-
-def _category_breakdown(
-    domains, security_results, email_results,
-    dns_sec_results, registrar_results, blacklist_results, rdns_results,
-) -> dict:
-    """Return {category: {PASS, WARN, FAIL}} for the stacked bar chart."""
-    cats = {
-        "Zone Security": {"PASS": 0, "WARN": 0, "FAIL": 0},
-        "Email": {"PASS": 0, "WARN": 0, "FAIL": 0},
-        "DNS Security": {"PASS": 0, "WARN": 0, "FAIL": 0},
-        "Infrastructure": {"PASS": 0, "WARN": 0, "FAIL": 0},
-    }
-    for d in domains:
-        sec = security_results.get(d)
-        if sec:
-            for r in sec.get("results", []):
-                g = r.get("grade", "INFO")
-                if g in cats["Zone Security"]:
-                    cats["Zone Security"][g] += 1
-
-        email = email_results.get(d, {})
-        for key in ("spf", "dmarc"):
-            g = email.get(key, {}).get("grade", "INFO")
-            if g in cats["Email"]:
-                cats["Email"][g] += 1
-
-        ds = dns_sec_results.get(d, {})
-        for key in ("dnssec", "caa", "dangling"):
-            g = ds.get(key, {}).get("grade", "INFO")
-            if g in cats["DNS Security"]:
-                cats["DNS Security"][g] += 1
-
-        reg = registrar_results.get(d, {})
-        for key in ("expiry", "lock"):
-            g = reg.get(key, {}).get("grade", "INFO")
-            if g in cats["Infrastructure"]:
-                cats["Infrastructure"][g] += 1
-
-        bl_g = blacklist_results.get(d, {}).get("grade", "INFO")
-        if bl_g in cats["Infrastructure"]:
-            cats["Infrastructure"][bl_g] += 1
-        rdns_g = rdns_results.get(d, {}).get("grade", "INFO")
-        if rdns_g in cats["Infrastructure"]:
-            cats["Infrastructure"][rdns_g] += 1
-
-    return cats
-
-
-# ── Priority helpers ─────────────────────────────────────────────────────────
-
-_PRIORITY_CLASS = {
-    "Critical": "badge-danger",
-    "High": "badge-warning",
-    "Medium": "badge-info",
-    "Low": "badge-info",
-}
-
-_PRIORITY_COLOR = {
-    "Critical": "#dc2626",
-    "High": "#d97706",
-    "Medium": "#3b82f6",
-    "Low": "#94a3b8",
-}
-
-_PRIORITY_BORDER = {
-    "Critical": "#dc2626",
-    "High": "#d97706",
-    "Medium": "#eab308",
-    "Low": "#3b82f6",
-}
-
-
-# ── Heatmap color helpers ────────────────────────────────────────────────────
-
-_HEAT_CLASS = {
-    "PASS": "heat-green",
-    "WARN": "heat-amber",
-    "FAIL": "heat-red",
-    "INFO": "heat-green",
-}
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# HTML fragment builders  (each returns a string to inject into {{PLACEHOLDER}})
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _build_category_bars(cat_data: dict) -> str:
-    """Build horizontal stacked progress bars for each category."""
-    parts = []
-    for cat_name, counts in cat_data.items():
-        total = counts["PASS"] + counts["WARN"] + counts["FAIL"]
-        if total == 0:
-            pct_pass = pct_warn = pct_fail = 0
-        else:
-            pct_pass = round(counts["PASS"] / total * 100, 1)
-            pct_warn = round(counts["WARN"] / total * 100, 1)
-            pct_fail = round(counts["FAIL"] / total * 100, 1)
-        score = f'{counts["PASS"]}/{total}'
-        parts.append(
-            f'<div class="progress-row">'
-            f'<div class="label">{_esc(cat_name)}</div>'
-            f'<div class="progress-track">'
-            f'<div class="progress-segment" style="width:{pct_pass}%;background:#059669"></div>'
-            f'<div class="progress-segment" style="width:{pct_warn}%;background:#d97706"></div>'
-            f'<div class="progress-segment" style="width:{pct_fail}%;background:#dc2626"></div>'
-            f'</div>'
-            f'<div class="score">{score}</div>'
-            f'</div>'
-        )
-    return "\n".join(parts)
-
-
-def _build_heatmap(
-    domains, security_results, email_results,
-    dns_sec_results, registrar_results, blacklist_results, rdns_results,
-) -> str:
-    """Build a risk heatmap grid: domains as rows, categories as columns."""
-    categories = ["Zone Security", "Email", "DNS Security", "Infrastructure"]
-
-    # Header row
-    cells = ['<div class="heatmap">']
-    cells.append('<div class="header-cell"></div>')  # empty top-left
-    for cat in categories:
-        cells.append(f'<div class="header-cell">{_esc(cat)}</div>')
-
-    for domain in domains:
-        cells.append(f'<div class="label-cell">{_esc(domain)}</div>')
-
-        # Zone Security: worst grade from security_results
-        sec = security_results.get(domain)
-        if sec:
-            zone_grades = [r.get("grade", "INFO") for r in sec.get("results", [])]
-            zone_worst = _worst(zone_grades) if zone_grades else "INFO"
-        else:
-            zone_worst = "INFO"
-
-        # Email: worst of SPF + DMARC
-        email = email_results.get(domain, {})
-        email_grades = [
-            email.get("spf", {}).get("grade", "INFO"),
-            email.get("dmarc", {}).get("grade", "INFO"),
-        ]
-        email_worst = _worst(email_grades)
-
-        # DNS Security: worst of DNSSEC + CAA + Dangling
-        ds = dns_sec_results.get(domain, {})
-        dns_grades = [
-            ds.get("dnssec", {}).get("grade", "INFO"),
-            ds.get("caa", {}).get("grade", "INFO"),
-            ds.get("dangling", {}).get("grade", "INFO"),
-        ]
-        dns_worst = _worst(dns_grades)
-
-        # Infrastructure: worst of expiry + lock + blacklist + rdns
-        reg = registrar_results.get(domain, {})
-        infra_grades = [
-            reg.get("expiry", {}).get("grade", "INFO"),
-            reg.get("lock", {}).get("grade", "INFO"),
-            blacklist_results.get(domain, {}).get("grade", "INFO"),
-            rdns_results.get(domain, {}).get("grade", "INFO"),
-        ]
-        infra_worst = _worst(infra_grades)
-
-        for w in [zone_worst, email_worst, dns_worst, infra_worst]:
-            hcls = _HEAT_CLASS.get(w, "heat-green")
-            cells.append(f'<div class="cell {hcls}">{_esc(w)}</div>')
-
-    cells.append('</div>')
-    return "\n".join(cells)
-
-
-def _build_domain_cards(
-    domains, domain_grades, email_results, security_results,
-    dns_results, registrar_results, dns_sec_results,
-    blacklist_results, rdns_results,
-) -> str:
-    """Build per-domain expandable cards with mini donut canvas and badge summaries."""
-    parts = []
-
-    for idx, domain in enumerate(domains):
-        dg = domain_grades.get(domain, {})
-
-        # Build grade badges
-        email = email_results.get(domain, {})
-        spf_g = email.get("spf", {}).get("grade", "INFO")
-        dmarc_g = email.get("dmarc", {}).get("grade", "INFO")
-
-        ds = dns_sec_results.get(domain, {})
-        dnssec_g = ds.get("dnssec", {}).get("grade", "INFO")
-        caa_g = ds.get("caa", {}).get("grade", "INFO")
-
-        sec = security_results.get(domain)
-        if sec:
-            passed, total = sec["score"]
-            sec_grade = _worst([r["grade"] for r in sec["results"]])
-            zone_badge = _badge(sec_grade, f"Zone {passed}/{total}")
-        else:
-            zone_badge = _badge("INFO", "Zone N/A")
-
-        bl_g = blacklist_results.get(domain, {}).get("grade", "INFO")
-        rdns_g = rdns_results.get(domain, {}).get("grade", "INFO")
-
-        # Build detail table rows
-        detail_rows = ""
-        if sec:
-            for r in sec["results"]:
-                detail_rows += (
-                    f'<tr><td>Zone Security</td><td>{_tip(r["label"])}</td>'
-                    f'<td><code>{_esc(r.get("recommended", _DASH))}</code></td>'
-                    f'<td><code>{_esc(r.get("actual", _DASH))}</code></td>'
-                    f'<td>{_badge(r["grade"])}</td></tr>\n'
-                )
-
-        for check_key, check_label, cat in [
-            ("spf", "SPF", "Email"),
-            ("dmarc", "DMARC", "Email"),
-        ]:
-            ck = email.get(check_key, {})
-            detail_rows += (
-                f'<tr><td>{_esc(cat)}</td><td>{_tip(check_label)}</td>'
-                f'<td>{_DASH}</td>'
-                f'<td><small>{_esc(ck.get("reason", ""))}</small></td>'
-                f'<td>{_badge(ck.get("grade", "INFO"))}</td></tr>\n'
-            )
-
-        for check_key, check_label in [("dnssec", "DNSSEC"), ("caa", "CAA"), ("dangling", "Dangling CNAMEs")]:
-            ck = ds.get(check_key, {})
-            detail_rows += (
-                f'<tr><td>DNS</td><td>{_tip(check_label)}</td>'
-                f'<td>{_DASH}</td>'
-                f'<td><small>{_esc(ck.get("reason", ""))}</small></td>'
-                f'<td>{_badge(ck.get("grade", "INFO"))}</td></tr>\n'
-            )
-
-        reg = registrar_results.get(domain, {})
-        for check_key, check_label in [("expiry", "Domain expiry"), ("lock", "Transfer lock")]:
-            ck = reg.get(check_key, {})
-            detail_rows += (
-                f'<tr><td>Infrastructure</td><td>{_tip(check_label)}</td>'
-                f'<td>{_DASH}</td>'
-                f'<td><small>{_esc(ck.get("reason", ""))}</small></td>'
-                f'<td>{_badge(ck.get("grade", "INFO"))}</td></tr>\n'
-            )
-
-        bl = blacklist_results.get(domain, {})
-        detail_rows += (
-            f'<tr><td>Infrastructure</td><td>{_tip("Blacklist (DNSBL)")}</td>'
-            f'<td>{_DASH}</td>'
-            f'<td><small>{_esc(bl.get("reason", ""))}</small></td>'
-            f'<td>{_badge(bl.get("grade", "INFO"))}</td></tr>\n'
-        )
-
-        rdns = rdns_results.get(domain, {})
-        detail_rows += (
-            f'<tr><td>Infrastructure</td><td>{_tip("Reverse DNS")}</td>'
-            f'<td>{_DASH}</td>'
-            f'<td><small>{_esc(rdns.get("reason", ""))}</small></td>'
-            f'<td>{_badge(rdns.get("grade", "INFO"))}</td></tr>\n'
-        )
-
-        dns_count = dns_results.get(domain, {}).get("total", 0)
-
-        badges_html = (
-            f'{_badge(spf_g, "SPF")} {_badge(dmarc_g, "DMARC")} '
-            f'{_badge(dnssec_g, "DNSSEC")} {_badge(caa_g, "CAA")} '
-            f'{zone_badge} {_badge(bl_g, "Blacklist")} {_badge(rdns_g, "rDNS")}'
-        )
-
-        parts.append(
-            f'<div class="domain-card" data-domain="{_esc(domain)}">'
-            f'<div class="domain-header" onclick="toggleDomain(this)">'
-            f'<div>'
-            f'<h3>{_esc(domain)} <span style="color:#94a3b8;font-weight:400;font-size:.8em">'
-            f'{_DASH} {dns_count} DNS records</span></h3>'
-            f'<div class="domain-badges" style="margin-top:8px">{badges_html}</div>'
-            f'</div>'
-            f'<div style="display:flex;align-items:center;gap:16px">'
-            f'<div class="domain-chart">'
-            f'<canvas id="domainDonut{idx}" width="80" height="80"></canvas>'
-            f'</div>'
-            f'<span class="chevron">&#9660;</span>'
-            f'</div>'
-            f'</div>'
-            f'<div class="domain-body">'
-            f'<div class="domain-body-inner">'
-            f'<table>'
-            f'<thead><tr><th>Category</th><th>Check</th><th>Recommended</th>'
-            f'<th>Actual</th><th>Grade</th></tr></thead>'
-            f'<tbody>{detail_rows}</tbody>'
-            f'</table>'
-            f'</div>'
-            f'</div>'
-            f'</div>'
-        )
-
-    return "\n".join(parts)
-
-
-def _build_findings(remediations: List[Dict]) -> str:
-    """Build remediation finding cards."""
-    if not remediations:
-        return '<div style="text-align:center;padding:40px;color:#94a3b8">No findings requiring attention.</div>'
-
-    parts = []
-
-    for finding in remediations:
-        prio = finding.get("priority", "Low")
-        prio_css = prio.lower()
-        prio_cls = _PRIORITY_CLASS.get(prio, "badge-info")
-        grade_badge = _badge(finding["grade"])
-        prio_badge = f'<span class="badge {prio_cls}">{_esc(prio)}</span>'
-
-        steps = finding.get("steps", [])
-        steps_html = ""
-        if steps:
-            step_items = "".join(f'<li>{_esc(s)}</li>' for s in steps)
-            steps_html = f'<ol class="finding-steps">{step_items}</ol>'
-
-        parts.append(
-            f'<div class="finding {prio_css}" data-domain="{_esc(finding.get("domain", ""))}">'
-            f'<div class="finding-header">'
-            f'{prio_badge} {grade_badge} '
-            f'<span class="finding-domain">{_esc(finding.get("domain", ""))}</span>'
-            f'<span class="finding-check">{_tip(finding.get("check", ""))}</span>'
-            f'</div>'
-            f'<div class="finding-risk"><strong>Risk:</strong> {_esc(finding.get("risk", ""))}</div>'
-            f'{steps_html}'
-            f'</div>'
-        )
-
-    return "\n".join(parts)
-
-
-def _build_detail_sections(
-    domains, security_results, email_results, email_std_results,
-    dns_sec_results, registrar_results, blacklist_results,
-    rdns_results, dns_results,
-) -> str:
-    """Build all collapsible detailed check sections."""
-    parts = []
-    parts.append(_build_detail_zone_security(domains, security_results))
-    parts.append(_build_detail_email(domains, email_results))
-    parts.append(_build_detail_email_standards(domains, email_std_results))
-    parts.append(_build_detail_dns_security(domains, dns_sec_results))
-    parts.append(_build_detail_infrastructure(
-        domains, registrar_results, blacklist_results, rdns_results,
-    ))
-    parts.append(_build_detail_dns_inventory(domains, dns_results))
-    return "\n".join(parts)
-
-
-def _collapsible(section_id: str, title: str, body: str) -> str:
-    return (
-        f'<button class="collapse-btn" onclick="toggleCollapse(this)">'
-        f'&#9660; {title}</button>'
-        f'<div class="collapse-content">{body}</div>'
-    )
-
-
-def _build_detail_zone_security(domains, security_results) -> str:
-    if not security_results:
-        return _collapsible("zone", "Zone Security Settings",
-                            '<p style="color:#94a3b8;padding:16px">No zone security data available.</p>')
-    rows = ""
-    for domain in domains:
-        sec = security_results.get(domain)
-        if not sec:
-            continue
-        for r in sec["results"]:
-            rows += (
-                f'<tr data-domain="{_esc(domain)}">'
-                f'<td><code>{_esc(domain)}</code></td>'
-                f'<td>{_tip(r["label"])}</td>'
-                f'<td><code>{_esc(r.get("recommended", _DASH))}</code></td>'
-                f'<td><code>{_esc(r.get("actual", _DASH))}</code></td>'
-                f'<td>{_badge(r["grade"])}</td></tr>\n'
-            )
-
-    table = (
-        '<table><thead><tr><th>Domain</th><th>Check</th>'
-        '<th>Recommended</th><th>Actual</th><th>Grade</th></tr></thead>'
-        f'<tbody>{rows}</tbody></table>'
-    )
-    return _collapsible("zone", "Zone Security Settings", table)
-
-
-def _build_detail_email(domains, email_results) -> str:
-    if not email_results:
-        return _collapsible("email", "Email Security",
-                            '<p style="color:#94a3b8;padding:16px">No email security data available.</p>')
-
-    body_parts = []
-    for domain in domains:
-        result = email_results.get(domain)
-        if not result:
-            continue
-
-        spf = result["spf"]
-        dmarc = result["dmarc"]
-        dkim_count = len(result["dkim"])
-
-        rows = (
-            f'<tr><td>{_tip("SPF")}</td><td>{_badge(spf["grade"])}</td>'
-            f'<td>{_esc(spf["reason"])}</td></tr>'
-            f'<tr><td>{_tip("DMARC")}</td><td>{_badge(dmarc["grade"])}</td>'
-            f'<td>{_esc(dmarc["reason"])}</td></tr>'
-            f'<tr><td>{_tip("DKIM")}</td><td>{_badge("PASS" if dkim_count else "INFO")}</td>'
-            f'<td>{dkim_count} selector(s) found</td></tr>'
-        )
-
-        spf_record = ""
-        if spf.get("record"):
-            spf_record = (
-                f'<div style="margin:8px 0"><code style="word-break:break-all;'
-                f'display:block;padding:10px;border-radius:6px">'
-                f'{_esc(spf["record"])}</code></div>'
-            )
-
-        dmarc_record = ""
-        if dmarc.get("record"):
-            dmarc_record = (
-                f'<div style="margin:8px 0"><code style="word-break:break-all;'
-                f'display:block;padding:10px;border-radius:6px">'
-                f'{_esc(dmarc["record"])}</code></div>'
-            )
-
-        dkim_html = ""
-        if result["dkim"]:
-            dkim_rows = "".join(
-                f'<tr><td><code>{_esc(dk["selector"])}</code></td>'
-                f'<td><code>{_esc(_truncate(dk["record"], 60))}</code></td></tr>'
-                for dk in result["dkim"]
-            )
-            dkim_html = (
-                f'<div style="margin-top:12px"><strong>{_tip("DKIM")} Selectors</strong></div>'
-                f'<table><thead><tr><th>Selector</th><th>Record</th></tr></thead>'
-                f'<tbody>{dkim_rows}</tbody></table>'
-            )
-
-        mx_html = ""
-        if result["has_mail"] and result["mx"]:
-            mx_rows = "".join(
-                f'<tr><td>{m["priority"]}</td><td><code>{_esc(m["host"])}</code></td></tr>'
-                for m in result["mx"]
-            )
-            mx_html = (
-                f'<div style="margin-top:12px"><strong>MX Records</strong></div>'
-                f'<table><thead><tr><th>Priority</th><th>Host</th></tr></thead>'
-                f'<tbody>{mx_rows}</tbody></table>'
-            )
-
-        body_parts.append(
-            f'<h4 style="color:#60a5fa;margin:20px 0 8px"><code>{_esc(domain)}</code></h4>'
-            f'<table><thead><tr><th>Check</th><th>Grade</th><th>Details</th></tr></thead>'
-            f'<tbody>{rows}</tbody></table>'
-            f'{spf_record}{dmarc_record}{mx_html}{dkim_html}'
-        )
-
-    return _collapsible("email", "Email Security", "\n".join(body_parts))
-
-
-def _build_detail_email_standards(domains, email_std_results) -> str:
-    if not email_std_results:
-        return _collapsible(
-            "email-std",
-            f"Email Standards ({_tip('MTA-STS')} / {_tip('TLSRPT')} / {_tip('BIMI')})",
-            '<p style="color:#94a3b8;padding:16px">No email standards data available.</p>',
-        )
-
-    rows = ""
-    for domain in domains:
-        result = email_std_results.get(domain)
-        if not result:
-            continue
-        mta = result.get("mta_sts", {})
-        tls = result.get("tlsrpt", {})
-        bimi = result.get("bimi", {})
-        rows += (
-            f'<tr data-domain="{_esc(domain)}">'
-            f'<td><code>{_esc(domain)}</code></td>'
-            f'<td>{_badge(mta.get("grade", "INFO"))} '
-            f'<small>{_esc(mta.get("reason", ""))}</small></td>'
-            f'<td>{_badge(tls.get("grade", "INFO"))} '
-            f'<small>{_esc(tls.get("reason", ""))}</small></td>'
-            f'<td>{_badge(bimi.get("grade", "INFO"))} '
-            f'<small>{_esc(bimi.get("reason", ""))}</small></td></tr>\n'
-        )
-
-    table = (
-        f'<table><thead><tr><th>Domain</th>'
-        f'<th>{_tip("MTA-STS")}</th><th>{_tip("TLSRPT")}</th><th>{_tip("BIMI")}</th>'
-        f'</tr></thead><tbody>{rows}</tbody></table>'
-    )
-    return _collapsible(
-        "email-std",
-        f"Email Standards ({_tip('MTA-STS')} / {_tip('TLSRPT')} / {_tip('BIMI')})",
-        table,
-    )
-
-
-def _build_detail_dns_security(domains, dns_sec_results) -> str:
-    if not dns_sec_results:
-        return _collapsible("dns-sec", "DNS Security",
-                            '<p style="color:#94a3b8;padding:16px">No DNS security data available.</p>')
-
-    body_parts = []
-    for domain in domains:
-        result = dns_sec_results.get(domain)
-        if not result:
-            continue
-
-        dnssec = result.get("dnssec", {})
-        caa = result.get("caa", {})
-        dangling = result.get("dangling", {})
-        dang_list = dangling.get("dangling", [])
-
-        rows = (
-            f'<tr><td>{_tip("DNSSEC")}</td><td>{_badge(dnssec.get("grade", "INFO"))}</td>'
-            f'<td>{_esc(dnssec.get("reason", ""))}</td></tr>'
-            f'<tr><td>{_tip("CAA")}</td><td>{_badge(caa.get("grade", "INFO"))}</td>'
-            f'<td>{_esc(caa.get("reason", ""))}</td></tr>'
-            f'<tr><td>{_tip("Dangling CNAMEs")}</td><td>{_badge(dangling.get("grade", "INFO"))}</td>'
-            f'<td>{len(dang_list)} dangling</td></tr>'
-        )
-
-        caa_records = caa.get("records", [])
-        caa_html = ""
-        if caa_records:
-            caa_rows = "".join(
-                f'<tr><td>{_esc(r.get("flags", ""))}</td>'
-                f'<td><code>{_esc(r.get("tag", ""))}</code></td>'
-                f'<td><code>{_esc(r.get("value", ""))}</code></td></tr>'
-                for r in caa_records
-            )
-            caa_html = (
-                f'<div style="margin-top:10px"><strong>CAA Records</strong></div>'
-                f'<table><thead><tr><th>Flags</th><th>Tag</th><th>Value</th></tr></thead>'
-                f'<tbody>{caa_rows}</tbody></table>'
-            )
-
-        dangling_html = ""
-        if dang_list:
-            dang_rows = "".join(
-                f'<tr><td><code>{_esc(d["name"])}</code></td>'
-                f'<td><code>{_esc(d["target"])}</code></td></tr>'
-                for d in dang_list
-            )
-            dangling_html = (
-                f'<div style="margin-top:10px"><strong>{_tip("Dangling CNAMEs")}</strong></div>'
-                f'<table><thead><tr><th>Record</th><th>Target</th></tr></thead>'
-                f'<tbody>{dang_rows}</tbody></table>'
-            )
-
-        body_parts.append(
-            f'<h4 style="color:#60a5fa;margin:20px 0 8px"><code>{_esc(domain)}</code></h4>'
-            f'<table><thead><tr><th>Check</th><th>Grade</th><th>Details</th></tr></thead>'
-            f'<tbody>{rows}</tbody></table>'
-            f'{caa_html}{dangling_html}'
-        )
-
-    return _collapsible("dns-sec", "DNS Security", "\n".join(body_parts))
-
-
-def _build_detail_infrastructure(
-    domains, registrar_results, blacklist_results, rdns_results,
-) -> str:
-    rows = ""
-    for domain in domains:
-        reg = registrar_results.get(domain, {})
-        bl = blacklist_results.get(domain, {})
-        rdns = rdns_results.get(domain, {})
-
-        registrar_name = _esc(reg.get("registrar", _DASH))
-        exp = reg.get("expiry", {})
-        lock = reg.get("lock", {})
-
-        rows += (
-            f'<tr data-domain="{_esc(domain)}">'
-            f'<td><code>{_esc(domain)}</code></td>'
-            f'<td>{registrar_name}</td>'
-            f'<td>{_badge(exp.get("grade", "INFO"))} <small>{_esc(exp.get("reason", ""))}</small></td>'
-            f'<td>{_badge(lock.get("grade", "INFO"))} '
-            f'<small>{"Locked" if lock.get("locked") else "Unlocked"}</small></td>'
-            f'<td>{_badge(bl.get("grade", "INFO"))} <small>{_esc(bl.get("reason", ""))}</small></td>'
-            f'<td>{_badge(rdns.get("grade", "INFO"))} <small>{_esc(rdns.get("reason", ""))}</small></td>'
-            f'</tr>\n'
-        )
-
-    table = (
-        '<table><thead><tr><th>Domain</th><th>Registrar</th>'
-        f'<th>{_tip("Domain expiry")}</th><th>{_tip("Transfer lock")}</th>'
-        f'<th>{_tip("Blacklist (DNSBL)")}</th><th>{_tip("Reverse DNS")}</th>'
-        '</tr></thead>'
-        f'<tbody>{rows}</tbody></table>'
-    )
-    return _collapsible("infra", "Infrastructure (Registrar, Blacklist, Reverse DNS)", table)
-
-
-def _build_detail_dns_inventory(domains, dns_results) -> str:
-    if not dns_results:
-        return _collapsible("dns-inv", "DNS Inventory",
-                            '<p style="color:#94a3b8;padding:16px">No DNS record data available.</p>')
-
-    body_parts = []
-    for domain in domains:
-        summary = dns_results.get(domain)
-        if not summary:
-            continue
-
-        type_pills = " ".join(
-            f'<span class="badge badge-info">{_esc(t)}: {c}</span>'
-            for t, c in summary["by_type"].items()
-        )
-
-        rows = ""
-        for r in sorted(summary["records"], key=lambda x: (x["type"], x["name"])):
-            proxied = '<span class="badge badge-warning">proxied</span>' if r["proxied"] else ""
-            rows += (
-                f"<tr>"
-                f"<td><code>{_esc(r['type'])}</code></td>"
-                f"<td><code>{_esc(r['name'])}</code></td>"
-                f"<td><code>{_esc(_truncate(r['content'], 70))}</code></td>"
-                f"<td>{r['ttl']}</td>"
-                f"<td>{proxied}</td>"
-                f"</tr>\n"
-            )
-
-        body_parts.append(
-            f'<h4 style="color:#60a5fa;margin:20px 0 8px">'
-            f'<code>{_esc(domain)}</code>'
-            f' <span style="color:#94a3b8;font-weight:400">'
-            f'{_DASH} {summary["total"]} records</span></h4>'
-            f'<div style="margin-bottom:8px">{type_pills}</div>'
-            f'<table><thead><tr><th>Type</th><th>Name</th><th>Content</th>'
-            f'<th>TTL</th><th></th></tr></thead>'
-            f'<tbody>{rows}</tbody></table>'
-        )
-
-    return _collapsible("dns-inv", "DNS Inventory", "\n".join(body_parts))

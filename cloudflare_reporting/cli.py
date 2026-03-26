@@ -284,7 +284,7 @@ async def _run_audit(args: argparse.Namespace) -> int:
         if "md" in args.format:
             reporter.write_markdown(**report_kwargs, output_path=path_md)
         if "html" in args.format:
-            reporter.write_html(**report_kwargs, output_path=path_html)
+            reporter.write_html(**report_kwargs, output_path=path_html, diff_result=diff_result)
         if "csv" in args.format:
             reporter.write_csv(**report_kwargs, output_path=path_csv)
 
