@@ -36,7 +36,7 @@ def _key(name: str) -> str:
 # ── Shodan (full API, beyond InternetDB) ─────────────────────────────────────
 
 async def _shodan_lookup(domain: str) -> Optional[dict]:
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
     api_key = _key("shodan")
     try:
         async with sem.http:
@@ -63,7 +63,7 @@ async def _shodan_lookup(domain: str) -> Optional[dict]:
 # ── VirusTotal ───────────────────────────────────────────────────────────────
 
 async def _virustotal_lookup(domain: str) -> Optional[dict]:
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
     api_key = _key("virustotal")
     try:
         async with sem.http:
@@ -87,7 +87,7 @@ async def _virustotal_lookup(domain: str) -> Optional[dict]:
 # ── AlienVault OTX ───────────────────────────────────────────────────────────
 
 async def _otx_lookup(domain: str) -> Optional[dict]:
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
     api_key = _key("otx")
     try:
         async with sem.http:
@@ -114,7 +114,7 @@ async def _otx_lookup(domain: str) -> Optional[dict]:
 # ── AbuseIPDB ────────────────────────────────────────────────────────────────
 
 async def _abuseipdb_lookup(ip: str) -> Optional[dict]:
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
     api_key = _key("abuseipdb")
     try:
         async with sem.http:
@@ -143,7 +143,7 @@ async def _abuseipdb_lookup(ip: str) -> Optional[dict]:
 # ── URLhaus ──────────────────────────────────────────────────────────────────
 
 async def _urlhaus_lookup(domain: str) -> Optional[dict]:
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
     try:
         async with sem.http:
             timeout = aiohttp.ClientTimeout(total=15)
@@ -167,14 +167,14 @@ async def _urlhaus_lookup(domain: str) -> Optional[dict]:
 # ── Google Safe Browsing ─────────────────────────────────────────────────────
 
 async def _safebrowsing_lookup(domain: str) -> Optional[dict]:
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
     api_key = _key("safebrowsing")
     try:
         async with sem.http:
             timeout = aiohttp.ClientTimeout(total=15)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 body = {
-                    "client": {"clientId": "cloudflare-reporting", "clientVersion": "1.0"},
+                    "client": {"clientId": "domain-security-toolkit", "clientVersion": "1.0"},
                     "threatInfo": {
                         "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE"],
                         "platformTypes": ["ANY_PLATFORM"],
@@ -217,8 +217,8 @@ async def check_domain(domain: str) -> dict:
         lookups["safebrowsing"] = _safebrowsing_lookup(domain)
     # AbuseIPDB needs an IP, resolve first
     if _key("abuseipdb"):
-        from cloudflare_reporting.lib import dns_resolver
-        from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
+        from domain_audit.lib import dns_resolver
+        from domain_audit.lib.concurrency import run_in_executor_throttled
         ips = await run_in_executor_throttled(dns_resolver.query, domain, "A")
         if ips:
             lookups["abuseipdb"] = _abuseipdb_lookup(ips[0])
@@ -244,7 +244,7 @@ async def check_all(domains: List[str]) -> Dict[str, dict]:
     if not any(_key(k) for k in _KEYS):
         return {}
 
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="OSINT check"
     )

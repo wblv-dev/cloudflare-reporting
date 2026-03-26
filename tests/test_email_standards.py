@@ -1,6 +1,6 @@
 """Tests for email_standards grading logic (MTA-STS, TLSRPT, BIMI)."""
 
-from cloudflare_reporting.checks.email_standards import grade_mta_sts, grade_tlsrpt, grade_bimi
+from domain_audit.checks.email_standards import grade_mta_sts, grade_tlsrpt, grade_bimi
 
 
 # ── MTA-STS grading ─────────────────────────────────────────────────────────

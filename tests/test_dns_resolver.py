@@ -1,6 +1,6 @@
 """Tests for dns_resolver grading logic."""
 
-from cloudflare_reporting.lib.dns_resolver import grade_spf, grade_dmarc
+from domain_audit.lib.dns_resolver import grade_spf, grade_dmarc
 
 
 # ── SPF grading ──────────────────────────────────────────────────────────────

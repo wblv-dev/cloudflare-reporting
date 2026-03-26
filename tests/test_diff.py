@@ -3,8 +3,8 @@
 import os
 import tempfile
 
-from cloudflare_reporting.lib.diff import compute_diff, format_diff_text
-from cloudflare_reporting.lib.database import Database
+from domain_audit.lib.diff import compute_diff, format_diff_text
+from domain_audit.lib.database import Database
 
 
 class TestComputeDiff:

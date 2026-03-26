@@ -175,7 +175,7 @@ def _extract_tech(headers: dict) -> List[dict]:
 
 async def _fetch_domain(domain: str) -> Optional[dict]:
     """Fetch a domain over HTTPS and return headers + security.txt."""
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
 
     result = {"headers": {}, "security_txt": None, "status": None, "error": None}
 
@@ -259,7 +259,7 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run web security checks for all domains, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="Web security check"
     )

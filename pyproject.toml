@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cloudflare-reporting"
-version = "1.2.0"
-description = "Read-only Cloudflare security audit toolkit"
+name = "domain-security-toolkit"
+version = "2.0.0"
+description = "Open-source domain security audit toolkit with customer-ready reports"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -17,17 +17,17 @@ dependencies = [
 ]
 
 [project.scripts]
-cf-audit = "cloudflare_reporting.cli:main"
-cf-dashboard = "cloudflare_reporting.dashboard:main"
+domain-audit = "domain_audit.cli:main"
+domain-dashboard = "domain_audit.dashboard:main"
 
 [project.urls]
-Repository = "https://github.com/wblv-dev/cloudflare-reporting"
+Repository = "https://github.com/wblv-dev/domain-security-toolkit"
 
 [tool.setuptools.packages.find]
-include = ["cloudflare_reporting*"]
+include = ["domain_audit*"]
 
 [tool.setuptools.package-data]
-cloudflare_reporting = ["datasette_metadata.json", "template.html"]
+domain_audit = ["datasette_metadata.json", "template.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

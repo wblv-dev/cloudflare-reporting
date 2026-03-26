@@ -3,7 +3,7 @@
 import os
 import tempfile
 
-from cloudflare_reporting.lib.database import Database
+from domain_audit.lib.database import Database
 
 
 def _tmp_db():

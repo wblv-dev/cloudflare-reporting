@@ -4,7 +4,7 @@ log.py — Structured logging for the audit toolkit.
 Provides a pre-configured logger that writes to both stderr (for terminal
 output) and an optional log file. All modules should use:
 
-    from cloudflare_reporting.lib.log import logger
+    from domain_audit.lib.log import logger
     logger.info("message")
 
 Log levels:
@@ -21,7 +21,7 @@ import sys
 LOG_FORMAT = "%(asctime)s  %(levelname)-8s  %(message)s"
 LOG_DATE   = "%H:%M:%S"
 
-logger = logging.getLogger("cloudflare-reporting")
+logger = logging.getLogger("domain-security-toolkit")
 
 
 def setup_logging(verbose: bool = False, log_file: str = None) -> None:

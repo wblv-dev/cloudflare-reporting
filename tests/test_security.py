@@ -15,19 +15,19 @@ import html
 import os
 import tempfile
 
-from cloudflare_reporting.lib.reporter import _badge, _truncate, write_csv, write_html
-from cloudflare_reporting.lib.database import Database
-from cloudflare_reporting.checks.dns_inventory import summarise
-from cloudflare_reporting.checks.registrar import (
+from domain_audit.lib.reporter import _badge, _truncate, write_csv, write_html
+from domain_audit.lib.database import Database
+from domain_audit.checks.dns_inventory import summarise
+from domain_audit.checks.registrar import (
     grade_expiry, grade_lock, _parse_expiry, _parse_statuses,
     _parse_nameservers, _parse_registrar, RDAP_BOOTSTRAP,
 )
-from cloudflare_reporting.checks.dns_security import grade_dnssec, grade_caa, grade_dangling
-from cloudflare_reporting.checks.blacklist import _reverse_ip, _is_cloud_mail, grade_blacklist
-from cloudflare_reporting.checks.reverse_dns import grade_reverse_dns
-from cloudflare_reporting.lib.dns_resolver import grade_spf, grade_dmarc
-from cloudflare_reporting.checks.zone_security import _grade, _extract_setting, CHECKS
-from cloudflare_reporting import config
+from domain_audit.checks.dns_security import grade_dnssec, grade_caa, grade_dangling
+from domain_audit.checks.blacklist import _reverse_ip, _is_cloud_mail, grade_blacklist
+from domain_audit.checks.reverse_dns import grade_reverse_dns
+from domain_audit.lib.dns_resolver import grade_spf, grade_dmarc
+from domain_audit.checks.zone_security import _grade, _extract_setting, CHECKS
+from domain_audit import config
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -41,7 +41,7 @@ class TestCredentialLeakage:
         """check_domain() and check_all() must NOT accept a session parameter,
         preventing accidental reuse of the authenticated CF session."""
         import inspect
-        from cloudflare_reporting.checks import registrar
+        from domain_audit.checks import registrar
 
         sig_domain = inspect.signature(registrar.check_domain)
         sig_all = inspect.signature(registrar.check_all)
@@ -57,7 +57,7 @@ class TestCredentialLeakage:
     def test_rdap_fetch_does_not_accept_session(self):
         """_fetch_rdap() must not accept a session parameter."""
         import inspect
-        from cloudflare_reporting.checks.registrar import _fetch_rdap
+        from domain_audit.checks.registrar import _fetch_rdap
 
         sig = inspect.signature(_fetch_rdap)
         assert "session" not in sig.parameters, \
@@ -70,7 +70,7 @@ class TestCredentialLeakage:
     def test_config_token_from_env_not_hardcoded(self):
         """CF_API_TOKEN must be loaded from environment, never hardcoded."""
         import ast
-        with open(os.path.join(os.path.dirname(__file__), "..", "cloudflare_reporting", "config.py"), encoding="utf-8") as f:
+        with open(os.path.join(os.path.dirname(__file__), "..", "domain_audit", "config.py"), encoding="utf-8") as f:
             tree = ast.parse(f.read())
 
         for node in ast.walk(tree):
@@ -398,7 +398,7 @@ class TestConfigurationSecurity:
     def test_default_token_is_empty(self):
         """Default token must be empty string, not a real value."""
         import ast
-        with open(os.path.join(os.path.dirname(__file__), "..", "cloudflare_reporting", "config.py"), encoding="utf-8") as f:
+        with open(os.path.join(os.path.dirname(__file__), "..", "domain_audit", "config.py"), encoding="utf-8") as f:
             source = f.read()
         assert 'os.getenv("CF_API_TOKEN"' in source or "os.getenv('CF_API_TOKEN'" in source
 

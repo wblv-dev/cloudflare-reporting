@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 import aiohttp
 
-from cloudflare_reporting.lib import dns_resolver
+from domain_audit.lib import dns_resolver
 
 
 # ── Pure grading functions (no I/O — easy to unit-test) ──────────────────────
@@ -235,7 +235,7 @@ async def _fetch_mta_sts_policy(domain: str) -> Optional[str]:
     The Cloudflare session must never be reused here — it carries
     the CF API token which would be leaked to the target domain.
     """
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
 
     url = f"https://mta-sts.{domain}/.well-known/mta-sts.txt"
     try:
@@ -253,7 +253,7 @@ async def _fetch_mta_sts_policy(domain: str) -> Optional[str]:
 
 async def check_domain(domain: str) -> dict:
     """Run all email standards checks for a single domain, throttled."""
-    from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
+    from domain_audit.lib.concurrency import run_in_executor_throttled
 
     # DNS lookups in a thread pool (blocking I/O), throttled
     dns_result = await run_in_executor_throttled(_check_domain_sync, domain)
@@ -282,7 +282,7 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run email standards checks for all domains, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="Email standards check"
     )

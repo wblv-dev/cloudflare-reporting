@@ -1,6 +1,6 @@
 """Tests for dns_security grading logic."""
 
-from cloudflare_reporting.checks.dns_security import grade_dnssec, grade_caa, grade_dangling
+from domain_audit.checks.dns_security import grade_dnssec, grade_caa, grade_dangling
 
 
 # ── DNSSEC grading ───────────────────────────────────────────────────────────

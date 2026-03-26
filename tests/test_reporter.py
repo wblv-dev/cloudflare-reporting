@@ -4,7 +4,7 @@ import csv
 import os
 import tempfile
 
-from cloudflare_reporting.lib.reporter import _worst, _sym, _truncate, _badge, write_csv, GRADE_SYMBOL
+from domain_audit.lib.reporter import _worst, _sym, _truncate, _badge, write_csv, GRADE_SYMBOL
 
 
 class TestWorst:

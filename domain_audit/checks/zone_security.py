@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 
 import aiohttp
 
-from cloudflare_reporting.lib.cf_client import cf_get
+from domain_audit.lib.cf_client import cf_get
 
 
 CHECKS = [
@@ -244,7 +244,7 @@ async def check_all(
     zone_ids: Dict[str, str],
 ) -> Dict[str, dict]:
     """Run zone security checks for all domains, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_zone(session, d, zid) for d, zid in zone_ids.items()},
         label="Security check",

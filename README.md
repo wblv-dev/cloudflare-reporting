@@ -1,40 +1,41 @@
 <div align="center">
 
-# Cloudflare Reporting
+# Domain Security Toolkit
 
-**The easiest way to audit your Cloudflare security configuration.**
+**Open-source domain security auditing backed by industry standards.**
 
-Run one command. Get a full security report across every zone on your account.
+Run one command against any domain. Get a customer-ready security report.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![Cloudflare Free Plan](https://img.shields.io/badge/cloudflare-free%20plan-f38020?logo=cloudflare&logoColor=white)](https://www.cloudflare.com/)
-[![Tests](https://img.shields.io/badge/tests-203%20passing-brightgreen)](https://github.com/wblv-dev/cloudflare-reporting/actions)
+[![Tests](https://img.shields.io/badge/tests-235%20passing-brightgreen)](https://github.com/wblv-dev/domain-security-toolkit/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Checks](https://img.shields.io/badge/checks-35%2B-informational)](https://github.com/wblv-dev/domain-security-toolkit)
 
 </div>
 
 ---
 
 ```
-$ cf-audit
+$ domain-audit --domains example.com
 
-[1/7] Discovering all zones on this API token ...
-       Found 3 zone(s): example.com, example.org, example.co.uk
-[2/7] Fetching DNS inventory and zone settings ...
-[3/7] Running live DNS checks ...
-[4/7] Saving results to audit_history.db ...
-[5/7] Comparing with previous run ...
-[6/7] Writing reports ...
+[1/7] Auditing 1 domain(s) ...
+[2/7] Skipping Cloudflare API checks (no token provided)
+[3/7] Running live DNS and HTTP checks ...
+  [EMAIL] example.com: SPF=PASS  DMARC=PASS
+  [DNSSEC] example.com: PASS
+  [WEB] example.com: 4/6 headers
+  [SHODAN] example.com: PASS (2 ports, 0 CVEs)
+  [OBSERVATORY] example.com: B+ (score: 70)
+  [CT] example.com: PASS (12 certs, 5 subdomains)
+[4/7] Saving results ...
 [7/7] Summary
 ============================================================
-  example.com          zone:9/11  SPF:PASS  DMARC:PASS  DNSSEC:PASS
-  example.org          zone:8/11  SPF:PASS  DMARC:WARN  DNSSEC:WARN
-  example.co.uk        zone:6/11  SPF:FAIL  DMARC:FAIL  DNSSEC:WARN
+  example.com          SPF:PASS  DMARC:PASS  DNSSEC:PASS  Headers:4/6
 ```
 
-`cf-audit` auto-discovers every zone on your API token and checks **25+ security settings** — TLS configuration, email authentication, DNSSEC, dangling CNAMEs, blacklists, domain expiry, and more. Results go into a static HTML report with remediation guidance, plus an interactive [Datasette](https://datasette.io/) dashboard for drilling into the data.
+35+ security checks. No API keys required. Every finding cites the specific NIST, OWASP, NCSC, CISA, or GDPR standard that recommends it.
 
-**Read-only.** Never writes to Cloudflare. Your token only needs `Zone:Read` + `DNS:Read`.
+**Cloudflare integration is optional** — add `--cloudflare-token` to include zone settings. Everything else works against any domain.
 
 ---
 
@@ -43,75 +44,54 @@ $ cf-audit
 **Windows (PowerShell):**
 
 ```powershell
-git clone https://github.com/wblv-dev/cloudflare-reporting
-cd cloudflare-reporting
+git clone https://github.com/wblv-dev/domain-security-toolkit
+cd domain-security-toolkit
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install .
 ```
 
-> If PowerShell blocks the activate script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
-
 **macOS / Linux:**
 
 ```bash
-git clone https://github.com/wblv-dev/cloudflare-reporting
-cd cloudflare-reporting
+git clone https://github.com/wblv-dev/domain-security-toolkit
+cd domain-security-toolkit
 python3 -m venv .venv
 source .venv/bin/activate
 pip install .
 ```
 
-<details>
-<summary>Don't have Python?</summary>
-
-| Platform | Easiest method |
-|----------|---------------|
-| **Windows** | Search "Python" in the Microsoft Store |
-| **macOS** | `brew install python` |
-| **Linux** | `sudo apt install python3 python3-pip python3-venv` |
-
-</details>
-
-## Set up your Cloudflare token
-
-1. [Cloudflare dashboard](https://dash.cloudflare.com/) → **My Profile** → **API Tokens** → **Create Token**
-2. Permissions: **Zone → Zone → Read** and **Zone → DNS → Read**
-3. Zone resources: **Include → All zones**
-
-```bash
-export CF_API_TOKEN="your_token_here"       # Windows: $env:CF_API_TOKEN="your_token_here"
-```
-
-> Full guide → [Cloudflare API token docs](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
-
 ## Run
 
 ```bash
-cf-audit                                     # Audit all zones
-cf-audit --domains example.com example.org   # Specific domains only
-cf-audit --output-dir /tmp/reports           # Custom output location
-cf-audit --verbose --log-file audit.log      # Debug logging
+domain-audit --domains example.com example.org
 ```
 
-Generates a **customer-ready GRC dashboard** and supporting files:
+That's it. No accounts, no API keys, no configuration.
 
-| File | What |
-|------|------|
-| `audit_report.html` | **GRC dashboard** — compliance charts, risk overview, per-domain scores, prioritised remediations with fix steps. Self-contained, works offline, printable as PDF. |
-| `AUDIT_REPORT.md` | Markdown — commit it, diff it |
-| `audit_report.csv` | One row per domain — for spreadsheets |
-| `audit_history.db` | SQLite — cumulative across runs |
-
-The HTML report is designed to be **sent directly to customers** — no technical knowledge required to read it. Print or save as PDF for a polished deliverable.
-
-### Data explorer (optional)
+**With Cloudflare** (optional — adds zone security settings):
 
 ```bash
-cf-dashboard                                 # http://localhost:8001
+domain-audit --domains example.com --cloudflare-token YOUR_CF_TOKEN
 ```
 
-Launches a [Datasette](https://datasette.io/) interface for power users who want to run custom SQL queries, explore audit history, or build their own views from the raw data.
+**With OSINT enrichment** (optional — set any combination):
+
+```bash
+export VIRUSTOTAL_KEY="..."      # Domain reputation (free: 500/day)
+export OTX_KEY="..."             # Threat intelligence (free: 10K/hr)
+export ABUSEIPDB_KEY="..."       # IP reputation (free: 1K/day)
+domain-audit --domains example.com
+```
+
+### Output
+
+| File | Description |
+|------|-------------|
+| `audit_report.html` | **Customer-ready dashboard** — charts, findings, remediations, standards references |
+| `AUDIT_REPORT.md` | Markdown — Git-friendly |
+| `audit_report.csv` | One row per domain |
+| `audit_history.db` | SQLite — cumulative history |
 
 ---
 
@@ -120,22 +100,7 @@ Launches a [Datasette](https://datasette.io/) interface for power users who want
 <table>
 <tr><td>
 
-**Cloudflare settings** (API)
-- SSL mode
-- Minimum TLS version
-- TLS 1.3
-- Always Use HTTPS
-- HTTPS Rewrites
-- HSTS (+ preload, subdomains)
-- Security Level
-- Browser Integrity Check
-- Email Obfuscation
-- Hotlink Protection
-- Opportunistic Encryption
-
-</td><td>
-
-**Email security** (DNS)
+**Email security**
 - SPF record + grading
 - DMARC policy + grading
 - DKIM (10 selectors)
@@ -143,89 +108,114 @@ Launches a [Datasette](https://datasette.io/) interface for power users who want
 - TLSRPT
 - BIMI
 
+**DNS security**
+- DNSSEC validation
+- CAA records
+- Dangling CNAMEs
+- DNSBL blacklists (6 lists)
+- Reverse DNS (FCrDNS)
+
 </td><td>
 
-**Infrastructure** (DNS + RDAP)
-- DNSSEC validation
-- CAA records (CF compatibility)
-- Dangling CNAMEs (takeover risk)
-- DNSBL blacklist (6 lists)
-- Reverse DNS (FCrDNS)
-- Domain expiry
+**Web security**
+- X-Frame-Options
+- Content-Security-Policy
+- X-Content-Type-Options
+- Referrer-Policy
+- Permissions-Policy
+- HSTS (HTTP header)
+- security.txt (RFC 9116)
+- Mozilla Observatory grade
+
+</td><td>
+
+**Infrastructure**
+- Domain expiry (RDAP)
 - Transfer lock
-- DNS record inventory
+- Open ports + CVEs (Shodan)
+- Certificate Transparency
+- Technology fingerprint
+
+**Cloudflare** (optional)
+- SSL mode, TLS version
+- HSTS, HTTPS redirect
+- Security level, headers
+- +6 more zone settings
 
 </td></tr>
 </table>
 
-Every check grades as **PASS** / **WARN** / **FAIL** / **INFO**. The HTML report includes a **Remediations** tab with step-by-step fix instructions for every finding, prioritised Critical → Low.
+Every finding cites the standard that recommends it — the **Checks Reference** tab in the report links to NIST, OWASP, NCSC, CISA, BSI, ENISA, ICO, PCI DSS, and relevant RFCs.
 
 ---
 
 ## CLI reference
 
 ```
-cf-audit [options]
+domain-audit --domains DOMAIN [DOMAIN ...]   Required: domains to audit
+             --cloudflare-token TOKEN         Optional: Cloudflare API token
+             --output-dir DIR                 Output directory (default: .)
+             --format {html,md,csv}           Output formats (default: all)
+             --concurrency N                  Max concurrent domains (default: 20)
+             --verbose                        Debug logging
+             --log-file FILE                  Log to file
+             --no-diff                        Skip previous-run comparison
 
-  --domains DOMAIN [...]     Audit specific domains (default: all zones)
-  --output-dir DIR           Output directory (default: .)
-  --format {html,md,csv}     Output formats (default: all)
-  --concurrency N            Max concurrent domains (default: 20)
-  --verbose, -v              Debug logging
-  --log-file FILE            Log to file
-  --no-diff                  Skip previous-run comparison
-  -h, --help                 Full help
-
-cf-dashboard [options]
-
-  --db FILE                  Database path (default: audit_history.db)
-  --port PORT                Port (default: 8001)
-  --host HOST                Bind address (default: 127.0.0.1)
+domain-dashboard                              Launch Datasette data explorer
 
 Exit codes:  0 = pass/warn   1 = error   2 = at least one FAIL
 ```
 
 ---
 
-## Large accounts
+## Optional API enrichment
 
-Built for enterprise — tested with 100+ zones. Concurrency is semaphore-controlled:
+All optional. Silent if not set. The tool works fully without any keys.
 
-| Resource | Limit | Why |
-|----------|-------|-----|
-| Domains | 20 concurrent | `--concurrency` flag |
-| Cloudflare API | 10 concurrent | Stays within rate limits |
-| DNS queries | 30 concurrent | Prevents resolver flooding |
-| RDAP lookups | 5 + retry | rdap.org rate limits |
-| HTTP fetches | 10 concurrent | MTA-STS policy fetches |
-
-A 180-zone account completes in 2–5 minutes.
+| Service | Env var | Free tier | What it adds |
+|---------|---------|-----------|-------------|
+| Shodan | `SHODAN_API_KEY` | 100/month | Detailed port/service data |
+| VirusTotal | `VIRUSTOTAL_KEY` | 500/day | Reputation from 70+ engines |
+| AlienVault OTX | `OTX_KEY` | 10,000/hr | Threat intelligence |
+| AbuseIPDB | `ABUSEIPDB_KEY` | 1,000/day | IP abuse scoring |
+| URLhaus | `URLHAUS_KEY` | Fair use | Malware URL checking |
+| Google Safe Browsing | `GOOGLE_SAFEBROWSING_KEY` | 10,000+/day | Phishing/malware flagging |
 
 ---
 
-## Security
+## Security & compliance
 
-- **Read-only** — never writes to Cloudflare
-- **No credential leakage** — RDAP/MTA-STS use separate unauthenticated sessions
-- **XSS-safe** — all user data HTML-escaped in reports
-- **Parameterised SQL** — no string interpolation
-- **203 tests** including 30 dedicated security tests (XSS, SQLi, credential leakage, input validation, DoS)
+Every check maps to published standards:
+
+| Standard | Checks covered |
+|----------|---------------|
+| **NIST SP 800-52** | TLS 1.2+, TLS 1.3 |
+| **NIST SP 800-177** | SPF, DKIM, DMARC |
+| **PCI DSS v4.0** | TLS 1.2 minimum |
+| **CISA BOD 18-01** | HTTPS, HSTS, SPF, DMARC p=reject |
+| **OWASP** | All HTTP security headers |
+| **NCSC UK** | TLS, email auth, DNSSEC, domain management |
+| **GDPR Art. 32** | Encryption in transit |
+| **NIS2** | DNSSEC, cryptography policies |
+| **BSI TR-02102** | TLS configuration |
+| **RFC 9116** | security.txt |
 
 ---
 
 ## Project structure
 
 ```
-cloudflare-reporting/
+domain-security-toolkit/
 ├── README.md
 ├── LICENSE
 ├── pyproject.toml
-├── cloudflare_reporting/       # pip install .
-│   ├── cli.py                  # cf-audit
-│   ├── dashboard.py            # cf-dashboard
+├── domain_audit/               # pip install .
+│   ├── cli.py                  # domain-audit command
+│   ├── dashboard.py            # domain-dashboard command
+│   ├── template.html           # HTML report template
 │   ├── checks/                 # One module per check category
-│   └── lib/                    # API client, database, reporter, etc.
-└── tests/                      # 203 tests
+│   └── lib/                    # API client, database, reporter, remediation
+└── tests/                      # 235 tests
 ```
 
 ## Testing
@@ -239,12 +229,8 @@ python -m pytest tests/ -v
 
 ## Contributing
 
-Issues and pull requests welcome. Please run the test suite before submitting.
+Issues and pull requests welcome.
 
 ## License
 
 [MIT](LICENSE)
-
-## References
-
-[Cloudflare API](https://developers.cloudflare.com/api/) · [Datasette](https://datasette.io/) · [SPF (RFC 7208)](https://www.rfc-editor.org/rfc/rfc7208) · [DMARC (RFC 7489)](https://www.rfc-editor.org/rfc/rfc7489) · [DKIM (RFC 6376)](https://www.rfc-editor.org/rfc/rfc6376) · [CAA (RFC 8659)](https://www.rfc-editor.org/rfc/rfc8659) · [DNSSEC](https://www.cloudflare.com/dns/dnssec/how-dnssec-works/) · [RDAP](https://about.rdap.org/)

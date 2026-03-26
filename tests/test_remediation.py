@@ -1,6 +1,6 @@
 """Tests for remediation guidance module."""
 
-from cloudflare_reporting.lib.remediation import get_tooltip, get_remediation, collect_remediations, TOOLTIPS, REMEDIATIONS
+from domain_audit.lib.remediation import get_tooltip, get_remediation, collect_remediations, TOOLTIPS, REMEDIATIONS
 
 
 class TestGetTooltip:

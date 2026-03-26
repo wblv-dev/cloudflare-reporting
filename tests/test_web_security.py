@@ -1,6 +1,6 @@
 """Tests for web_security grading logic."""
 
-from cloudflare_reporting.checks.web_security import grade_header, grade_security_txt, SECURITY_HEADERS
+from domain_audit.checks.web_security import grade_header, grade_security_txt, SECURITY_HEADERS
 
 
 class TestGradeHeader:

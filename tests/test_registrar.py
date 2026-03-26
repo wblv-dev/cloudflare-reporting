@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone, timedelta
 
-from cloudflare_reporting.checks.registrar import (
+from domain_audit.checks.registrar import (
     grade_expiry,
     grade_lock,
     _parse_expiry,

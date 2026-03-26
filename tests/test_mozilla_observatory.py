@@ -1,6 +1,6 @@
 """Tests for Mozilla Observatory grading."""
 
-from cloudflare_reporting.checks.mozilla_observatory import grade_observatory
+from domain_audit.checks.mozilla_observatory import grade_observatory
 
 
 class TestGradeObservatory:

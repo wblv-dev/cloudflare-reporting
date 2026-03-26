@@ -6,7 +6,7 @@ each category, preventing rate-limit hits and resolver flooding when
 auditing 100+ zones.
 
 Usage:
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
 
     async with sem.cf_api:
         result = await cf_get(session, path)
@@ -19,7 +19,7 @@ All limits are configurable via set_limits().
 
 import asyncio
 
-from cloudflare_reporting.lib.log import logger
+from domain_audit.lib.log import logger
 
 
 class _Semaphores:

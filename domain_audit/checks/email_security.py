@@ -9,7 +9,7 @@ Runs all domain checks concurrently via asyncio.
 import asyncio
 from typing import Dict, List
 
-from cloudflare_reporting.lib import dns_resolver
+from domain_audit.lib import dns_resolver
 
 
 DKIM_SELECTORS = [
@@ -61,7 +61,7 @@ def _check_domain_sync(domain: str) -> dict:
 
 async def check_domain(domain: str) -> dict:
     """Async wrapper — runs DNS lookups in a thread pool, throttled."""
-    from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
+    from domain_audit.lib.concurrency import run_in_executor_throttled
     result = await run_in_executor_throttled(_check_domain_sync, domain)
     print(f"  [EMAIL] {domain}: SPF={result['spf']['grade']}  DMARC={result['dmarc']['grade']}")
     return result
@@ -69,7 +69,7 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run email security checks for all domains, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="Email check"
     )

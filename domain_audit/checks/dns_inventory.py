@@ -10,7 +10,7 @@ from typing import Dict, List
 
 import aiohttp
 
-from cloudflare_reporting.lib.cf_client import paginate
+from domain_audit.lib.cf_client import paginate
 
 
 async def fetch_domain(
@@ -29,7 +29,7 @@ async def fetch_all(
     zone_ids: Dict[str, str],
 ) -> Dict[str, List[dict]]:
     """Fetch DNS records for all zones, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     results = await throttled_gather(
         {d: fetch_domain(session, d, zid) for d, zid in zone_ids.items()},
         label="DNS fetch",

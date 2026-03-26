@@ -38,7 +38,7 @@ async def _fetch_rdap(domain: str, max_retries: int = 3) -> Optional[dict]:
 
     Throttled by the RDAP semaphore and retries on 429/5xx.
     """
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
 
     url = f"{RDAP_BOOTSTRAP}/{domain}"
     for attempt in range(1, max_retries + 1):
@@ -203,7 +203,7 @@ async def check_all(domains: List[str]) -> Dict[str, dict]:
     Note: Does NOT accept a Cloudflare session. RDAP calls use their
     own unauthenticated sessions to avoid leaking the CF API token.
     """
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="Registrar check"
     )

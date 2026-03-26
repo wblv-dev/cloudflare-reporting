@@ -1,6 +1,6 @@
 """Tests for zone_security grading functions and bulk settings extraction."""
 
-from cloudflare_reporting.checks.zone_security import (
+from domain_audit.checks.zone_security import (
     _grade, _grade_hsts, _extract_setting, _extract_hsts, CHECKS,
 )
 

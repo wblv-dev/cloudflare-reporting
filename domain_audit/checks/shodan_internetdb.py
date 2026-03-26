@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import aiohttp
 
-from cloudflare_reporting.lib import dns_resolver
+from domain_audit.lib import dns_resolver
 
 
 INTERNETDB_URL = "https://internetdb.shodan.io"
@@ -20,7 +20,7 @@ INTERNETDB_URL = "https://internetdb.shodan.io"
 
 async def _query_ip(ip: str) -> Optional[dict]:
     """Query InternetDB for a single IP."""
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
 
     try:
         async with sem.http:
@@ -83,7 +83,7 @@ def grade_internetdb(ip_results: List[dict]) -> dict:
 
 async def check_domain(domain: str) -> dict:
     """Check a domain's IPs against Shodan InternetDB."""
-    from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
+    from domain_audit.lib.concurrency import run_in_executor_throttled
 
     ips = await run_in_executor_throttled(_resolve_ips_sync, domain)
 
@@ -113,7 +113,7 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run Shodan InternetDB checks for all domains, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="Shodan InternetDB"
     )

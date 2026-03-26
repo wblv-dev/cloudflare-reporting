@@ -7,7 +7,7 @@ SQLite database, identifying regressions, improvements, and DNS changes.
 
 from typing import Dict, List, Optional
 
-from cloudflare_reporting.lib.database import Database
+from domain_audit.lib.database import Database
 
 # Grade ordering from worst to best.
 GRADE_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}

@@ -1,6 +1,6 @@
 """Tests for dns_inventory.summarise()."""
 
-from cloudflare_reporting.checks.dns_inventory import summarise
+from domain_audit.checks.dns_inventory import summarise
 
 
 class TestSummarise:

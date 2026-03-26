@@ -8,7 +8,7 @@ public DNS blacklists. All checks are pure DNS lookups.
 import asyncio
 from typing import Dict, List, Optional
 
-from cloudflare_reporting.lib import dns_resolver as resolver
+from domain_audit.lib import dns_resolver as resolver
 
 
 # Major public DNSBLs — free for low-volume/non-commercial use
@@ -161,7 +161,7 @@ def _check_domain_sync(domain: str) -> dict:
 
 async def check_domain(domain: str) -> dict:
     """Async wrapper — runs DNSBL lookups in a thread pool, throttled."""
-    from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
+    from domain_audit.lib.concurrency import run_in_executor_throttled
     result = await run_in_executor_throttled(_check_domain_sync, domain)
     print(f"  [BLACKLIST] {domain}: {result['grade']}")
     return result
@@ -169,7 +169,7 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run blacklist checks for all domains, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="Blacklist check"
     )

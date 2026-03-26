@@ -18,7 +18,7 @@ CRT_SH_URL = "https://crt.sh"
 
 async def _fetch_certs(domain: str) -> Optional[List[dict]]:
     """Fetch certificate transparency data from crt.sh."""
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
 
     url = f"{CRT_SH_URL}/?q=%.{domain}&output=json"
     try:
@@ -169,7 +169,7 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run CT checks for all domains, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="CT log check"
     )

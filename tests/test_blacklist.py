@@ -1,6 +1,6 @@
 """Tests for blacklist grading logic and helpers."""
 
-from cloudflare_reporting.checks.blacklist import _reverse_ip, _is_cloud_mail, grade_blacklist
+from domain_audit.checks.blacklist import _reverse_ip, _is_cloud_mail, grade_blacklist
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

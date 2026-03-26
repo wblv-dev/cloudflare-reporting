@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-cf-dashboard — Launch the Datasette dashboard for audit results.
+domain-dashboard — Launch the Datasette dashboard for audit results.
 
 Usage:
-    cf-dashboard                     # Default: audit_history.db on port 8001
-    cf-dashboard --db /path/to.db    # Custom database path
-    cf-dashboard --port 9000         # Custom port
-    cf-dashboard --host 0.0.0.0      # Listen on all interfaces
+    domain-dashboard                     # Default: audit_history.db on port 8001
+    domain-dashboard --db /path/to.db    # Custom database path
+    domain-dashboard --port 9000         # Custom port
+    domain-dashboard --host 0.0.0.0      # Listen on all interfaces
 """
 
 import argparse
@@ -34,7 +34,7 @@ def main():
 
     if not os.path.exists(args.db):
         print(f"[ERROR] Database not found: {args.db}", file=sys.stderr)
-        print("        Run 'cf-audit' first to generate audit data.", file=sys.stderr)
+        print("        Run 'domain-audit' first to generate audit data.", file=sys.stderr)
         return 1
 
     metadata = os.path.join(os.path.dirname(__file__), "datasette_metadata.json")

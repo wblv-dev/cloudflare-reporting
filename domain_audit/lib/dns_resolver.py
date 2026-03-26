@@ -9,7 +9,7 @@ from typing import List, Optional
 import dns.resolver
 import dns.exception
 
-from cloudflare_reporting import config
+from domain_audit import config
 
 
 def _make_resolver() -> dns.resolver.Resolver:

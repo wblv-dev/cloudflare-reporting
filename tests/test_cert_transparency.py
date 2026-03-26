@@ -1,6 +1,6 @@
 """Tests for cert_transparency grading and parsing."""
 
-from cloudflare_reporting.checks.cert_transparency import _parse_certs, grade_ct
+from domain_audit.checks.cert_transparency import _parse_certs, grade_ct
 
 
 class TestParseCerts:

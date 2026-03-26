@@ -18,7 +18,7 @@ OBSERVATORY_API = "https://observatory-api.mdn.mozilla.net/api/v2"
 
 async def _scan_domain(domain: str) -> Optional[dict]:
     """Submit a domain for scanning and retrieve results."""
-    from cloudflare_reporting.lib.concurrency import sem
+    from domain_audit.lib.concurrency import sem
 
     try:
         async with sem.http:
@@ -110,7 +110,7 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run Mozilla Observatory scans for all domains, throttled."""
-    from cloudflare_reporting.lib.concurrency import throttled_gather
+    from domain_audit.lib.concurrency import throttled_gather
     return await throttled_gather(
         {d: check_domain(d) for d in domains}, label="Mozilla Observatory"
     )

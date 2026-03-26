@@ -1,6 +1,6 @@
 """Tests for reverse_dns grading logic."""
 
-from cloudflare_reporting.checks.reverse_dns import grade_reverse_dns
+from domain_audit.checks.reverse_dns import grade_reverse_dns
 
 
 class TestGradeReverseDns:

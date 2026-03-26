@@ -1,6 +1,6 @@
 """Tests for Shodan InternetDB grading."""
 
-from cloudflare_reporting.checks.shodan_internetdb import grade_internetdb
+from domain_audit.checks.shodan_internetdb import grade_internetdb
 
 
 class TestGradeInternetdb:
