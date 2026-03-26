@@ -67,6 +67,8 @@ pip install -e .
 domain-audit --domains yourdomain.com
 ```
 
+> **Windows: `domain-audit` not found?** Use `python -m domain_audit --domains yourdomain.com` instead — this always works regardless of PATH.
+
 **Multiple domains from a file** (one per line — ideal for large audits):
 ```bash
 domain-audit --domains-file my-domains.txt
