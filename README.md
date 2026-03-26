@@ -1,22 +1,21 @@
-<div align="center">
+<p align="center">
+  <img src="docs/banner.svg" alt="Domain Security Toolkit" width="100%">
+</p>
 
-<h1>🔒 Domain Security Toolkit</h1>
+<p align="center">
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white" alt="Python 3.10+"></a>
+  <a href="https://github.com/wblv-dev/domain-security-toolkit/actions"><img src="https://img.shields.io/badge/tests-255%20passing-brightgreen" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
+</p>
 
-**Open-source domain security auditing backed by industry standards.**
-
-Run one command. Get a customer-ready security report for any domain.
-
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)](https://github.com/wblv-dev/domain-security-toolkit/actions)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Checks](https://img.shields.io/badge/security%20checks-35%2B-8b5cf6)](https://github.com/wblv-dev/domain-security-toolkit)
-[![Standards](https://img.shields.io/badge/standards-NIST%20%7C%20OWASP%20%7C%20NCSC%20%7C%20GDPR-f59e0b)](https://github.com/wblv-dev/domain-security-toolkit)
-
-<br>
-
-[Quick start](#quick-start) · [What it checks](#what-it-checks) · [Report output](#what-you-get) · [CLI reference](#all-cli-options) · [OSINT enrichment](#optional-osint-enrichment) · [Cloudflare](#optional-cloudflare-integration) · [Troubleshooting](#troubleshooting)
-
-</div>
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#what-it-checks">What it checks</a> ·
+  <a href="#what-you-get">Report output</a> ·
+  <a href="#all-cli-options">CLI reference</a> ·
+  <a href="#optional-osint-enrichment">OSINT enrichment</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
 
 ---
 
