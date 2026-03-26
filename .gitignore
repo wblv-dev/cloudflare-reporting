@@ -20,3 +20,4 @@ audit_report.csv
 
 # Test cache
 .pytest_cache/
+build/
