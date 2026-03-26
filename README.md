@@ -19,7 +19,6 @@ Run one command against any domain. Get a customer-ready security report.
 $ domain-audit --domains example.com
 
 [1/7] Auditing 1 domain(s) ...
-[2/7] Skipping Cloudflare API checks (no token provided)
 [3/7] Running live DNS and HTTP checks ...
   [EMAIL] example.com: SPF=PASS  DMARC=PASS
   [DNSSEC] example.com: PASS
@@ -27,22 +26,36 @@ $ domain-audit --domains example.com
   [SHODAN] example.com: PASS (2 ports, 0 CVEs)
   [OBSERVATORY] example.com: B+ (score: 70)
   [CT] example.com: PASS (12 certs, 5 subdomains)
-[4/7] Saving results ...
 [7/7] Summary
 ============================================================
   example.com          SPF:PASS  DMARC:PASS  DNSSEC:PASS  Headers:4/6
+
+  Reports: audit_report.html, AUDIT_REPORT.md, audit_report.csv
 ```
 
-35+ security checks. No API keys required. Every finding cites the specific NIST, OWASP, NCSC, CISA, or GDPR standard that recommends it.
-
-**Cloudflare integration is optional** — add `--cloudflare-token` to include zone settings. Everything else works against any domain.
+35+ security checks against any domain. No API keys needed. Every finding backed by NIST, OWASP, NCSC, CISA, or GDPR standards.
 
 ---
 
-## Install
+## Step 1: Prerequisites
+
+You need **Git** and **Python 3.10+** installed.
+
+| | Windows | macOS | Linux |
+|---|---------|-------|-------|
+| **Git** | [git-scm.com](https://git-scm.com/downloads/win) (reopen PowerShell after) | `brew install git` or `xcode-select --install` | `sudo apt install git` |
+| **Python** | Search **"Python"** in Microsoft Store (recommended) | `brew install python` | `sudo apt install python3 python3-pip python3-venv` |
+
+Verify both work:
+```
+git --version
+python --version       # Windows
+python3 --version      # macOS/Linux
+```
+
+## Step 2: Install the toolkit
 
 **Windows (PowerShell):**
-
 ```powershell
 git clone https://github.com/wblv-dev/domain-security-toolkit
 cd domain-security-toolkit
@@ -51,8 +64,12 @@ python -m venv .venv
 pip install .
 ```
 
-**macOS / Linux:**
+> **PowerShell error?** If you see "cannot be loaded because running scripts is disabled", run this first:
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+> ```
 
+**macOS / Linux:**
 ```bash
 git clone https://github.com/wblv-dev/domain-security-toolkit
 cd domain-security-toolkit
@@ -61,37 +78,36 @@ source .venv/bin/activate
 pip install .
 ```
 
-## Run
+## Step 3: Audit your domains
 
 ```bash
-domain-audit --domains example.com example.org
+domain-audit --domains yourdomain.com
 ```
 
-That's it. No accounts, no API keys, no configuration.
+That's it. No accounts, no API keys, no configuration needed.
 
-**With Cloudflare** (optional — adds zone security settings):
-
+**Multiple domains:**
 ```bash
-domain-audit --domains example.com --cloudflare-token YOUR_CF_TOKEN
+domain-audit --domains example.com example.org example.co.uk
 ```
 
-**With OSINT enrichment** (optional — set any combination):
-
+**With Cloudflare zone settings** (optional — need a [Cloudflare API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/) with Zone:Read + DNS:Read):
 ```bash
-export VIRUSTOTAL_KEY="..."      # Domain reputation (free: 500/day)
-export OTX_KEY="..."             # Threat intelligence (free: 10K/hr)
-export ABUSEIPDB_KEY="..."       # IP reputation (free: 1K/day)
-domain-audit --domains example.com
+domain-audit --domains example.com --cloudflare-token YOUR_TOKEN
 ```
 
-### Output
+## Step 4: View your report
 
-| File | Description |
-|------|-------------|
-| `audit_report.html` | **Customer-ready dashboard** — charts, findings, remediations, standards references |
-| `AUDIT_REPORT.md` | Markdown — Git-friendly |
-| `audit_report.csv` | One row per domain |
-| `audit_history.db` | SQLite — cumulative history |
+After the audit runs, open **`audit_report.html`** in any web browser. This is your security report.
+
+| File | What it's for |
+|------|--------------|
+| **`audit_report.html`** | Open in a browser — interactive dashboard with charts, findings, fix steps. **Send this to customers.** |
+| `AUDIT_REPORT.md` | Same content in Markdown — useful for Git repos or documentation. |
+| `audit_report.csv` | One row per domain — open in Excel/Sheets for filtering and analysis. |
+| `audit_history.db` | SQLite database — accumulates data across runs for trend tracking. |
+
+**Printing / PDF:** Open the HTML file in your browser and press **Ctrl+P** (or **Cmd+P** on Mac) → Save as PDF. The report is print-optimised.
 
 ---
 
@@ -145,60 +161,94 @@ domain-audit --domains example.com
 </td></tr>
 </table>
 
-Every finding cites the standard that recommends it — the **Checks Reference** tab in the report links to NIST, OWASP, NCSC, CISA, BSI, ENISA, ICO, PCI DSS, and relevant RFCs.
+Every finding in the report links to the standard that recommends it (NIST, OWASP, NCSC, CISA, GDPR, PCI DSS, and more).
 
 ---
 
-## CLI reference
+## Optional: OSINT enrichment
 
-```
-domain-audit --domains DOMAIN [DOMAIN ...]   Required: domains to audit
-             --cloudflare-token TOKEN         Optional: Cloudflare API token
-             --output-dir DIR                 Output directory (default: .)
-             --format {html,md,csv}           Output formats (default: all)
-             --concurrency N                  Max concurrent domains (default: 20)
-             --verbose                        Debug logging
-             --log-file FILE                  Log to file
-             --no-diff                        Skip previous-run comparison
+The tool works fully without any API keys. For deeper threat intelligence, you can set any of these (all have free tiers):
 
-domain-dashboard                              Launch Datasette data explorer
-
-Exit codes:  0 = pass/warn   1 = error   2 = at least one FAIL
+**Windows (PowerShell):**
+```powershell
+$env:VIRUSTOTAL_KEY="your_key_here"
+$env:OTX_KEY="your_key_here"
+domain-audit --domains example.com
 ```
 
+**macOS / Linux:**
+```bash
+export VIRUSTOTAL_KEY="your_key_here"
+export OTX_KEY="your_key_here"
+domain-audit --domains example.com
+```
+
+| Service | Env var | Free signup | What it adds |
+|---------|---------|------------|-------------|
+| VirusTotal | `VIRUSTOTAL_KEY` | [virustotal.com](https://www.virustotal.com/gui/join-us) (500/day) | Reputation from 70+ security engines |
+| AlienVault OTX | `OTX_KEY` | [otx.alienvault.com](https://otx.alienvault.com/) (10K/hr) | Threat intelligence feeds |
+| AbuseIPDB | `ABUSEIPDB_KEY` | [abuseipdb.com](https://www.abuseipdb.com/register) (1K/day) | IP abuse scoring |
+| Shodan | `SHODAN_API_KEY` | [shodan.io](https://account.shodan.io/register) (100/month) | Detailed port/service data |
+| URLhaus | `URLHAUS_KEY` | [abuse.ch](https://auth.abuse.ch/) | Malware URL checking |
+| Google Safe Browsing | `GOOGLE_SAFEBROWSING_KEY` | [developers.google.com](https://developers.google.com/safe-browsing/) | Phishing/malware flagging |
+
 ---
 
-## Optional API enrichment
+## Optional: Cloudflare integration
 
-All optional. Silent if not set. The tool works fully without any keys.
+If your domains use Cloudflare, adding a token unlocks 11 additional zone security checks (SSL mode, TLS version, HSTS, security level, etc.).
 
-| Service | Env var | Free tier | What it adds |
-|---------|---------|-----------|-------------|
-| Shodan | `SHODAN_API_KEY` | 100/month | Detailed port/service data |
-| VirusTotal | `VIRUSTOTAL_KEY` | 500/day | Reputation from 70+ engines |
-| AlienVault OTX | `OTX_KEY` | 10,000/hr | Threat intelligence |
-| AbuseIPDB | `ABUSEIPDB_KEY` | 1,000/day | IP abuse scoring |
-| URLhaus | `URLHAUS_KEY` | Fair use | Malware URL checking |
-| Google Safe Browsing | `GOOGLE_SAFEBROWSING_KEY` | 10,000+/day | Phishing/malware flagging |
+1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com/)
+2. **My Profile** → **API Tokens** → **Create Token**
+3. Permissions: **Zone → Zone → Read** and **Zone → DNS → Read**
+4. Zone resources: **Include → All zones**
+
+```bash
+domain-audit --domains example.com --cloudflare-token YOUR_TOKEN
+```
+
+Or set it as an environment variable:
+```bash
+export CF_API_TOKEN="YOUR_TOKEN"        # macOS/Linux
+$env:CF_API_TOKEN="YOUR_TOKEN"          # Windows
+domain-audit --domains example.com
+```
 
 ---
 
-## Security & compliance
+## All CLI options
 
-Every check maps to published standards:
+```
+domain-audit --domains DOMAIN [DOMAIN ...]   Domains to audit (required)
+             --cloudflare-token TOKEN         Cloudflare API token (optional)
+             --output-dir DIR                 Where to save reports (default: current folder)
+             --format {html,md,csv}           Which reports to generate (default: all)
+             --concurrency N                  Parallel domains (default: 20, lower for slow connections)
+             --verbose                        Show detailed debug output
+             --log-file FILE                  Save full log to a file
+             --no-diff                        Don't compare with previous run
 
-| Standard | Checks covered |
-|----------|---------------|
-| **NIST SP 800-52** | TLS 1.2+, TLS 1.3 |
-| **NIST SP 800-177** | SPF, DKIM, DMARC |
-| **PCI DSS v4.0** | TLS 1.2 minimum |
-| **CISA BOD 18-01** | HTTPS, HSTS, SPF, DMARC p=reject |
-| **OWASP** | All HTTP security headers |
-| **NCSC UK** | TLS, email auth, DNSSEC, domain management |
-| **GDPR Art. 32** | Encryption in transit |
-| **NIS2** | DNSSEC, cryptography policies |
-| **BSI TR-02102** | TLS configuration |
-| **RFC 9116** | security.txt |
+domain-dashboard                              Open interactive data explorer (needs Datasette)
+```
+
+**Exit codes** (useful for automation):
+- `0` — all checks passed or warned
+- `1` — configuration or runtime error
+- `2` — at least one check graded FAIL
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `domain-audit: command not found` | Make sure your virtual environment is activated (`.venv\Scripts\Activate.ps1` on Windows, `source .venv/bin/activate` on Mac/Linux) |
+| `python: command not found` | Install Python — see Step 1 above |
+| `git: command not found` | Install Git — see Step 1 above. Reopen your terminal after installing. |
+| `Scripts\Activate.ps1 cannot be loaded` | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` in PowerShell |
+| `pip install .` fails | Make sure you're inside the `domain-security-toolkit` folder and your venv is activated |
+| Report looks broken | Make sure you open `audit_report.html` in a modern browser (Chrome, Firefox, Edge) |
+| Slow on many domains | Lower concurrency: `domain-audit --domains ... --concurrency 10` |
 
 ---
 
@@ -214,7 +264,7 @@ domain-security-toolkit/
 │   ├── dashboard.py            # domain-dashboard command
 │   ├── template.html           # HTML report template
 │   ├── checks/                 # One module per check category
-│   └── lib/                    # API client, database, reporter, remediation
+│   └── lib/                    # Reporter, database, remediation, standards
 └── tests/                      # 235 tests
 ```
 
@@ -224,8 +274,6 @@ domain-security-toolkit/
 pip install pytest
 python -m pytest tests/ -v
 ```
-
----
 
 ## Contributing
 
