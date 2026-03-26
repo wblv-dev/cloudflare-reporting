@@ -7,7 +7,7 @@
 Run one command. Get a customer-ready security report for any domain.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-235%20passing-brightgreen)](https://github.com/wblv-dev/domain-security-toolkit/actions)
+[![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)](https://github.com/wblv-dev/domain-security-toolkit/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Checks](https://img.shields.io/badge/security%20checks-35%2B-8b5cf6)](https://github.com/wblv-dev/domain-security-toolkit)
 [![Standards](https://img.shields.io/badge/standards-NIST%20%7C%20OWASP%20%7C%20NCSC%20%7C%20GDPR-f59e0b)](https://github.com/wblv-dev/domain-security-toolkit)
@@ -271,6 +271,35 @@ Those are web-based SaaS tools ($0-$26K/year). This is a CLI that produces a sel
 <summary><strong>Can I run this on a schedule?</strong></summary>
 Yes. It's a CLI with exit codes — set up a cron job or scheduled task. Exit code 2 means failures were found.
 </details>
+
+---
+
+## Roadmap
+
+```mermaid
+graph LR
+    A[✅ v2.0 Core<br/>35+ checks working] --> B[🔨 Report Redesign<br/>Professional assessment format]
+    B --> C[⚙️ Config & Quality<br/>YAML baselines, logging]
+    C --> D[🔍 New Checks<br/>TLS handshake, cookies, AXFR]
+    D --> E[🚀 Commercial<br/>Branding, PyPI, scheduling]
+
+    style A fill:#059669,color:#fff
+    style B fill:#d97706,color:#fff
+    style C fill:#3b82f6,color:#fff
+    style D fill:#3b82f6,color:#fff
+    style E fill:#6b7280,color:#fff
+```
+
+| Phase | Status | Key items |
+|-------|--------|-----------|
+| **v2.0 Core** | ✅ Done | 35+ checks, CLI, HTML/MD/CSV reports, standards mapping, OSINT integrations |
+| **Report redesign** | 🔨 Next | Professional security assessment format — cover page, executive summary, one-page scorecard, methodology section, plain English findings |
+| **Configuration** | Planned | YAML config for checks/standards (non-developers can update baselines), migrate print→logger |
+| **New checks** | Planned | TLS handshake (cert expiry, chain, protocols), AXFR zone transfer, cookie security, SPF lookup count, CORS, NS redundancy, CSP quality, Spamhaus DBL |
+| **Features** | Planned | `--include-subdomains`, IP address input, progress bar, phishing risk score, cyber insurance checklist |
+| **Commercial** | Planned | White-label/branded reports, PyPI publishing, GitHub Actions scheduled audits |
+
+See [full roadmap](https://github.com/wblv-dev/domain-security-toolkit/issues) for details.
 
 ---
 
