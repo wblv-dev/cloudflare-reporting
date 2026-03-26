@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0e1a"/>
+      <stop offset="50%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#059669"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399"/>
+      <stop offset="100%" style="stop-color:#059669"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <!-- Subtle grid -->
+  <g opacity="0.025" stroke="#60a5fa" stroke-width="1">
+    <line x1="0" y1="128" x2="1280" y2="128"/>
+    <line x1="0" y1="256" x2="1280" y2="256"/>
+    <line x1="0" y1="384" x2="1280" y2="384"/>
+    <line x1="0" y1="512" x2="1280" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="640"/>
+    <line x1="512" y1="0" x2="512" y2="640"/>
+    <line x1="768" y1="0" x2="768" y2="640"/>
+    <line x1="1024" y1="0" x2="1024" y2="640"/>
+  </g>
+
+  <!-- Decorative circles -->
+  <circle cx="1150" cy="100" r="200" fill="url(#accent)" opacity="0.05"/>
+  <circle cx="130" cy="550" r="150" fill="#059669" opacity="0.04"/>
+
+  <!-- Shield icon -->
+  <g transform="translate(490, 120)">
+    <path d="M60 8 L115 30 L115 80 C115 120 90 155 60 168 C30 155 5 120 5 80 L5 30 Z"
+          fill="none" stroke="url(#shield)" stroke-width="3.5" opacity="0.9"/>
+    <path d="M38 88 L52 104 L84 64"
+          fill="none" stroke="#34d399" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Title -->
+  <text x="640" y="355" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="56" font-weight="700" fill="#e2e8f0" text-anchor="middle" letter-spacing="-1">
+    Domain Security Toolkit
+  </text>
+
+  <!-- Tagline -->
+  <text x="640" y="405" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="22" fill="#94a3b8" text-anchor="middle" font-weight="400">
+    Open-source domain security auditing backed by industry standards
+  </text>
+
+  <!-- Accent line -->
+  <rect x="560" y="425" width="160" height="3" rx="2" fill="url(#accent)"/>
+
+  <!-- Feature pills -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="500">
+    <rect x="270" y="460" width="120" height="34" rx="17" fill="#059669" opacity="0.15"/>
+    <text x="330" y="482" fill="#34d399" text-anchor="middle">35+ Checks</text>
+
+    <rect x="405" y="460" width="140" height="34" rx="17" fill="#3b82f6" opacity="0.15"/>
+    <text x="475" y="482" fill="#60a5fa" text-anchor="middle">OSINT Powered</text>
+
+    <rect x="560" y="460" width="160" height="34" rx="17" fill="#d97706" opacity="0.15"/>
+    <text x="640" y="482" fill="#fbbf24" text-anchor="middle">NIST · OWASP · NCSC</text>
+
+    <rect x="735" y="460" width="130" height="34" rx="17" fill="#8b5cf6" opacity="0.15"/>
+    <text x="800" y="482" fill="#a78bfa" text-anchor="middle">No Keys Needed</text>
+  </g>
+
+  <!-- Bottom text -->
+  <text x="640" y="560" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="16" fill="#475569" text-anchor="middle">
+    One command. Any domain. Customer-ready security report.
+  </text>
+
+  <!-- URL -->
+  <text x="640" y="590" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="14" fill="#374151" text-anchor="middle">
+    github.com/wblv-dev/domain-security-toolkit
+  </text>
+</svg>
