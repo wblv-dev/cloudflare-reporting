@@ -285,7 +285,7 @@ async def _run_audit(args: argparse.Namespace) -> int:
     registrar_results = await registrar.check_all(resolved)
 
     # ── 3. Live DNS + HTTP checks (no Cloudflare needed) ────────────
-    logger.info("[3/7] Running live DNS and HTTP checks ...")
+    logger.info("[3/7] Running live DNS and HTTP checks for %d domain(s) ...", len(resolved))
     email_task      = asyncio.create_task(email_security.check_all(resolved))
     dns_sec_task    = asyncio.create_task(dns_security.check_all(resolved, raw_dns))
     blacklist_task  = asyncio.create_task(blacklist.check_all(resolved))
@@ -429,16 +429,55 @@ async def _run_audit(args: argparse.Namespace) -> int:
     return 0
 
 
+ERROR_LOG = "domain-audit-error.log"
+
+
+def _write_error_log(error_type: str, error: Exception = None):
+    """Write a crash/error log that users can attach to GitHub issues."""
+    import traceback
+    import platform
+    from domain_audit import __version__
+
+    try:
+        with open(ERROR_LOG, "w", encoding="utf-8") as f:
+            f.write(f"Domain Security Toolkit v{__version__}\n")
+            f.write(f"Python {platform.python_version()} on {platform.system()} {platform.release()}\n")
+            f.write(f"Error type: {error_type}\n")
+            f.write(f"Timestamp: {__import__('datetime').datetime.now().isoformat()}\n")
+            f.write("=" * 60 + "\n\n")
+            if error:
+                traceback.print_exc(file=f)
+            else:
+                f.write("Interrupted by user (Ctrl+C)\n")
+            f.write("\n\nPlease attach this file when opening an issue:\n")
+            f.write("https://github.com/wblv-dev/domain-security-toolkit/issues\n")
+        print(f"\n  Error details saved to {ERROR_LOG}", file=sys.stderr)
+    except Exception:
+        pass  # Don't fail on failure to write error log
+
+
 def main() -> int:
     args = parse_args()
     setup_logging(verbose=args.verbose, log_file=args.log_file)
+
+    import time
+    start = time.time()
+
     try:
-        return asyncio.run(_run_audit(args))
+        result = asyncio.run(_run_audit(args))
+        elapsed = time.time() - start
+        print(f"\n  Completed in {elapsed:.1f}s")
+        return result
     except KeyboardInterrupt:
-        logger.info("Interrupted.")
+        elapsed = time.time() - start
+        _write_error_log("KeyboardInterrupt")
+        print(f"\n  Interrupted after {elapsed:.1f}s", file=sys.stderr)
         return 130
     except Exception as e:
+        elapsed = time.time() - start
+        _write_error_log("Unhandled exception", e)
         logger.critical("Unexpected error: %s", e, exc_info=args.verbose)
+        print(f"\n  Failed after {elapsed:.1f}s", file=sys.stderr)
         return 1
 
 

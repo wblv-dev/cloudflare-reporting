@@ -215,6 +215,7 @@ code{font-family:'SF Mono',Monaco,Consolas,monospace;background:#1e293b;padding:
   <div class="score-hero">
     <div class="num" id="heroScore"></div>
     <div class="lbl">Compliant</div>
+    <div class="lbl" id="heroExplain" style="font-size:.7em;max-width:200px;margin-top:4px;line-height:1.3"></div>
   </div>
 </div>
 
@@ -277,10 +278,12 @@ function switchTab(id, filter){
 
 /* ── BUILD EXECUTIVE SUMMARY ─────────────────────────────── */
 function buildSummary(){
-  var total=D.grades.pass+D.grades.warn+D.grades.fail+D.grades.info;
-  var compPct=pct(D.grades.pass,total);
+  // Compliance % excludes INFO (informational/not-applicable checks don't count against you)
+  var actionable=D.grades.pass+D.grades.warn+D.grades.fail;
+  var compPct=pct(D.grades.pass,actionable);
 
   document.getElementById('heroScore').textContent=compPct+'%';
+  document.getElementById('heroExplain').textContent=D.grades.pass+' of '+actionable+' actionable checks passed ('+D.grades.info+' informational excluded)';
   document.getElementById('headerSub').textContent=D.generated+' \u00b7 '+D.domains.length+' domains \u00b7 '+D.totalRecords+' DNS records';
 
   var h='';

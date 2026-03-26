@@ -7,6 +7,7 @@ venv/
 *.egg-info/
 
 # Generated output
+domain-audit-error.log
 audit_history.db
 audit_history.db-shm
 audit_history.db-wal
