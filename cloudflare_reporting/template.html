@@ -265,6 +265,7 @@ var tabs = [
   {id:'findings', label:'Findings', count:0},
   {id:'domains', label:'Domains'},
   {id:'remediation', label:'Remediations', count:0},
+  {id:'checks', label:'Checks Reference'},
   {id:'history', label:'Changes'}
 ];
 
@@ -584,6 +585,49 @@ function renderCharts(){
   });
 }
 
+/* ── BUILD CHECKS REFERENCE TAB ───────────────────────────── */
+function buildChecksRef(){
+  var h='<div style="margin-bottom:16px;color:#94a3b8;font-size:.9em">Every check in this audit is backed by published standards from NIST, OWASP, NCSC, CISA, BSI, ENISA, and relevant RFCs. Click any check for details.</div>';
+
+  var stds=D.standards||{};
+  var cats={};
+  D.allChecks.forEach(function(c){
+    if(!cats[c.category])cats[c.category]={};
+    cats[c.category][c.check]=1;
+  });
+
+  Object.keys(cats).sort().forEach(function(cat){
+    h+='<div class="stitle">'+esc(cat)+'</div>';
+    var checks=Object.keys(cats[cat]).sort();
+    checks.forEach(function(check){
+      var tt=D.tooltips[check]||'';
+      var refs=(stds[check]||{}).references||[];
+      h+='<div class="card" style="margin-bottom:10px;cursor:pointer" onclick="this.querySelector(\'.check-detail\').classList.toggle(\'open\')">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center">';
+      h+='<strong>'+esc(check)+'</strong>';
+      if(refs.length)h+='<span style="font-size:.75em;color:#64748b">'+refs.length+' standard(s)</span>';
+      h+='</div>';
+      h+='<div class="check-detail coll-body" style="margin-top:10px">';
+      if(tt)h+='<div style="color:#94a3b8;font-size:.88em;margin-bottom:10px">'+esc(tt)+'</div>';
+      if(refs.length){
+        h+='<table><thead><tr><th>Body</th><th>Document</th><th>Requirement</th><th>Jurisdiction</th><th>Status</th></tr></thead><tbody>';
+        refs.forEach(function(r){
+          var link=r.url?'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(r.document)+'</a>':esc(r.document);
+          h+='<tr><td><strong>'+esc(r.body)+'</strong></td><td>'+link+'</td>';
+          h+='<td style="font-size:.85em">'+esc(r.requirement||'')+'</td>';
+          h+='<td>'+esc(r.jurisdiction||'')+'</td>';
+          h+='<td>'+(r.mandatory?badge('FAIL','Mandatory'):badge('INFO','Recommended'))+'</td></tr>';
+        });
+        h+='</tbody></table>';
+      } else {
+        h+='<div style="color:#475569;font-size:.85em">Industry best practice. No specific regulatory mandate found.</div>';
+      }
+      h+='</div></div>';
+    });
+  });
+  return h;
+}
+
 /* ── GLOBAL SEARCH ───────────────────────────────────────── */
 function globalFilter(q){
   q=q.toLowerCase().trim();
@@ -640,6 +684,7 @@ function globalFilter(q){
   ph+='<div class="panel" id="panel-findings">'+buildFindings()+'</div>';
   ph+='<div class="panel" id="panel-domains">'+buildDomains()+'</div>';
   ph+='<div class="panel" id="panel-remediation">'+buildRemediations()+'</div>';
+  ph+='<div class="panel" id="panel-checks">'+buildChecksRef()+'</div>';
   ph+='<div class="panel" id="panel-history">'+buildHistory()+'</div>';
   document.getElementById('panels').innerHTML=ph;
 

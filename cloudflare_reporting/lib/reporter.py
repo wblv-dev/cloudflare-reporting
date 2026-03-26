@@ -456,7 +456,7 @@ def write_csv(
 import json as _json
 import os as _os
 
-from cloudflare_reporting.lib.remediation import collect_remediations, TOOLTIPS
+from cloudflare_reporting.lib.remediation import collect_remediations, TOOLTIPS, STANDARDS
 
 
 def _read_chartjs() -> str:
@@ -566,6 +566,8 @@ def write_html(
     email_std_results: Dict[str, dict] = None,
     web_sec_results: Dict[str, dict] = None,
     ct_results: Dict[str, dict] = None,
+    internetdb_results: Dict[str, dict] = None,
+    obs_results: Dict[str, dict] = None,
     osint_results: Dict[str, dict] = None,
     output_path: str = "",
     diff_result: dict = None,
@@ -594,6 +596,28 @@ def write_html(
                 "domain": d, "category": "Web Security",
                 "check": "security.txt", "recommended": "Published (RFC 9116)",
                 "actual": sec_txt.get("reason", ""), "grade": sec_txt.get("grade", "INFO"),
+            })
+
+    # Add Shodan InternetDB checks
+    _idb = internetdb_results or {}
+    for d in domains:
+        idb = _idb.get(d, {})
+        if idb.get("grade"):
+            all_checks.append({
+                "domain": d, "category": "Infrastructure",
+                "check": "Open Ports (Shodan)", "recommended": "No risky ports exposed",
+                "actual": idb.get("reason", ""), "grade": idb.get("grade", "INFO"),
+            })
+
+    # Add Mozilla Observatory checks
+    _obs = obs_results or {}
+    for d in domains:
+        ob = _obs.get(d, {})
+        if ob.get("grade"):
+            all_checks.append({
+                "domain": d, "category": "Web Security",
+                "check": "Mozilla Observatory", "recommended": "Grade A or above",
+                "actual": ob.get("reason", ""), "grade": ob.get("grade", "INFO"),
             })
 
     grades = {
@@ -654,9 +678,12 @@ def write_html(
         "categories": _category_data(all_checks),
         "findings": findings,
         "tooltips": TOOLTIPS,
+        "standards": STANDARDS,
         "diff": diff_result,
         "ct": ct_data,
         "webSecurity": web_data,
+        "internetdb": {d: _idb.get(d, {}) for d in domains if _idb.get(d)},
+        "observatory": {d: _obs.get(d, {}) for d in domains if _obs.get(d)},
         "osint": osint_results or {},
     }
 

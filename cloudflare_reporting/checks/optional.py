@@ -5,79 +5,194 @@ Each integration is completely silent if its env var is not set.
 No errors, no warnings — just skipped.
 
 Supported:
-    SHODAN_API_KEY      — Open ports, services, vulnerabilities
-    VIRUSTOTAL_KEY      — Domain reputation and malware associations
+    SHODAN_API_KEY         — Detailed port/service data (beyond InternetDB)
+    VIRUSTOTAL_KEY         — Domain reputation from 70+ engines
+    OTX_KEY                — AlienVault OTX threat intelligence
+    ABUSEIPDB_KEY          — IP abuse reputation scoring
+    URLHAUS_KEY            — Malware URL checking
+    GOOGLE_SAFEBROWSING_KEY — Google phishing/malware flagging
 """
 
-import asyncio
 import os
 from typing import Dict, List, Optional
 
 import aiohttp
 
 
-# ── Shodan ───────────────────────────────────────────────────────────────────
+_KEYS = {
+    "shodan": "SHODAN_API_KEY",
+    "virustotal": "VIRUSTOTAL_KEY",
+    "otx": "OTX_KEY",
+    "abuseipdb": "ABUSEIPDB_KEY",
+    "urlhaus": "URLHAUS_KEY",
+    "safebrowsing": "GOOGLE_SAFEBROWSING_KEY",
+}
 
-async def _shodan_lookup(domain: str, api_key: str) -> Optional[dict]:
-    """Query Shodan for a domain's IP information."""
+
+def _key(name: str) -> str:
+    return os.environ.get(_KEYS.get(name, ""), "")
+
+
+# ── Shodan (full API, beyond InternetDB) ─────────────────────────────────────
+
+async def _shodan_lookup(domain: str) -> Optional[dict]:
     from cloudflare_reporting.lib.concurrency import sem
-
+    api_key = _key("shodan")
     try:
         async with sem.http:
             timeout = aiohttp.ClientTimeout(total=15)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                url = f"https://api.shodan.io/dns/resolve?hostnames={domain}&key={api_key}"
-                async with session.get(url) as r:
+                async with session.get(f"https://api.shodan.io/dns/resolve?hostnames={domain}&key={api_key}") as r:
                     if r.status != 200:
                         return None
                     ips = await r.json()
                     ip = ips.get(domain)
                     if not ip:
                         return None
-
-                # Get host info
-                url2 = f"https://api.shodan.io/shodan/host/{ip}?key={api_key}"
-                async with session.get(url2) as r2:
+                async with session.get(f"https://api.shodan.io/shodan/host/{ip}?key={api_key}") as r2:
                     if r2.status != 200:
-                        return {"ip": ip, "ports": [], "vulns": [], "error": f"HTTP {r2.status}"}
+                        return {"ip": ip, "ports": [], "vulns": []}
                     data = await r2.json()
-                    return {
-                        "ip": ip,
-                        "ports": data.get("ports", []),
-                        "vulns": list(data.get("vulns", [])),
-                        "org": data.get("org", ""),
-                        "os": data.get("os", ""),
-                        "isp": data.get("isp", ""),
-                    }
-    except Exception as e:
-        return {"ip": None, "ports": [], "vulns": [], "error": str(e)}
+                    return {"ip": ip, "ports": data.get("ports", []),
+                            "vulns": list(data.get("vulns", [])),
+                            "org": data.get("org", ""), "isp": data.get("isp", "")}
+    except Exception:
+        return None
 
 
 # ── VirusTotal ───────────────────────────────────────────────────────────────
 
-async def _virustotal_lookup(domain: str, api_key: str) -> Optional[dict]:
-    """Query VirusTotal for domain reputation."""
+async def _virustotal_lookup(domain: str) -> Optional[dict]:
     from cloudflare_reporting.lib.concurrency import sem
-
+    api_key = _key("virustotal")
     try:
         async with sem.http:
             timeout = aiohttp.ClientTimeout(total=15)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                url = f"https://www.virustotal.com/api/v3/domains/{domain}"
-                headers = {"x-apikey": api_key}
-                async with session.get(url, headers=headers) as r:
+                async with session.get(f"https://www.virustotal.com/api/v3/domains/{domain}",
+                                       headers={"x-apikey": api_key}) as r:
                     if r.status != 200:
                         return None
                     data = await r.json()
                     attrs = data.get("data", {}).get("attributes", {})
                     stats = attrs.get("last_analysis_stats", {})
+                    return {"malicious": stats.get("malicious", 0),
+                            "suspicious": stats.get("suspicious", 0),
+                            "harmless": stats.get("harmless", 0),
+                            "reputation": attrs.get("reputation", 0)}
+    except Exception:
+        return None
+
+
+# ── AlienVault OTX ───────────────────────────────────────────────────────────
+
+async def _otx_lookup(domain: str) -> Optional[dict]:
+    from cloudflare_reporting.lib.concurrency import sem
+    api_key = _key("otx")
+    try:
+        async with sem.http:
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    f"https://otx.alienvault.com/api/v1/indicators/domain/{domain}/general",
+                    headers={"X-OTX-API-KEY": api_key},
+                ) as r:
+                    if r.status != 200:
+                        return None
+                    data = await r.json()
+                    pulses = data.get("pulse_info", {})
                     return {
-                        "malicious": stats.get("malicious", 0),
-                        "suspicious": stats.get("suspicious", 0),
-                        "harmless": stats.get("harmless", 0),
-                        "undetected": stats.get("undetected", 0),
-                        "reputation": attrs.get("reputation", 0),
-                        "categories": attrs.get("categories", {}),
+                        "pulse_count": pulses.get("count", 0),
+                        "pulses": [p.get("name", "") for p in pulses.get("pulses", [])[:5]],
+                        "reputation": data.get("reputation", 0),
+                        "sections": data.get("sections", []),
+                    }
+    except Exception:
+        return None
+
+
+# ── AbuseIPDB ────────────────────────────────────────────────────────────────
+
+async def _abuseipdb_lookup(ip: str) -> Optional[dict]:
+    from cloudflare_reporting.lib.concurrency import sem
+    api_key = _key("abuseipdb")
+    try:
+        async with sem.http:
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    "https://api.abuseipdb.com/api/v2/check",
+                    params={"ipAddress": ip, "maxAgeInDays": "90"},
+                    headers={"Key": api_key, "Accept": "application/json"},
+                ) as r:
+                    if r.status != 200:
+                        return None
+                    data = await r.json()
+                    d = data.get("data", {})
+                    return {
+                        "abuse_score": d.get("abuseConfidenceScore", 0),
+                        "total_reports": d.get("totalReports", 0),
+                        "isp": d.get("isp", ""),
+                        "usage_type": d.get("usageType", ""),
+                        "country": d.get("countryCode", ""),
+                    }
+    except Exception:
+        return None
+
+
+# ── URLhaus ──────────────────────────────────────────────────────────────────
+
+async def _urlhaus_lookup(domain: str) -> Optional[dict]:
+    from cloudflare_reporting.lib.concurrency import sem
+    try:
+        async with sem.http:
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    "https://urlhaus-api.abuse.ch/v1/host/",
+                    data={"host": domain},
+                ) as r:
+                    if r.status != 200:
+                        return None
+                    data = await r.json(content_type=None)
+                    return {
+                        "urls_count": data.get("urls_count", 0) if data.get("urls_count") else 0,
+                        "status": data.get("query_status", ""),
+                        "urls": [u.get("url", "") for u in (data.get("urls", []) or [])[:5]],
+                    }
+    except Exception:
+        return None
+
+
+# ── Google Safe Browsing ─────────────────────────────────────────────────────
+
+async def _safebrowsing_lookup(domain: str) -> Optional[dict]:
+    from cloudflare_reporting.lib.concurrency import sem
+    api_key = _key("safebrowsing")
+    try:
+        async with sem.http:
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                body = {
+                    "client": {"clientId": "cloudflare-reporting", "clientVersion": "1.0"},
+                    "threatInfo": {
+                        "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE"],
+                        "platformTypes": ["ANY_PLATFORM"],
+                        "threatEntryTypes": ["URL"],
+                        "threatEntries": [{"url": f"https://{domain}/"}],
+                    },
+                }
+                async with session.post(
+                    f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}",
+                    json=body,
+                ) as r:
+                    if r.status != 200:
+                        return None
+                    data = await r.json()
+                    matches = data.get("matches", [])
+                    return {
+                        "flagged": len(matches) > 0,
+                        "threats": [m.get("threatType", "") for m in matches],
                     }
     except Exception:
         return None
@@ -87,27 +202,37 @@ async def _virustotal_lookup(domain: str, api_key: str) -> Optional[dict]:
 
 async def check_domain(domain: str) -> dict:
     """Run all optional integrations for a domain. Skip if keys not set."""
-    result = {"domain": domain, "shodan": None, "virustotal": None}
+    result = {"domain": domain}
 
-    shodan_key = os.environ.get("SHODAN_API_KEY", "")
-    vt_key = os.environ.get("VIRUSTOTAL_KEY", "")
+    lookups = {}
+    if _key("shodan"):
+        lookups["shodan"] = _shodan_lookup(domain)
+    if _key("virustotal"):
+        lookups["virustotal"] = _virustotal_lookup(domain)
+    if _key("otx"):
+        lookups["otx"] = _otx_lookup(domain)
+    if _key("urlhaus"):
+        lookups["urlhaus"] = _urlhaus_lookup(domain)
+    if _key("safebrowsing"):
+        lookups["safebrowsing"] = _safebrowsing_lookup(domain)
+    # AbuseIPDB needs an IP, resolve first
+    if _key("abuseipdb"):
+        from cloudflare_reporting.lib import dns_resolver
+        from cloudflare_reporting.lib.concurrency import run_in_executor_throttled
+        ips = await run_in_executor_throttled(dns_resolver.query, domain, "A")
+        if ips:
+            lookups["abuseipdb"] = _abuseipdb_lookup(ips[0])
 
-    tasks = {}
-    if shodan_key:
-        tasks["shodan"] = _shodan_lookup(domain, shodan_key)
-    if vt_key:
-        tasks["virustotal"] = _virustotal_lookup(domain, vt_key)
+    if not lookups:
+        return result
 
-    if not tasks:
-        return result  # No keys set, nothing to do
-
-    for name, coro in tasks.items():
+    for name, coro in lookups.items():
         try:
             result[name] = await coro
         except Exception:
             pass
 
-    active = [k for k in ("shodan", "virustotal") if result.get(k)]
+    active = [k for k in lookups if result.get(k)]
     if active:
         print(f"  [OSINT] {domain}: {', '.join(active)}")
 
@@ -116,11 +241,8 @@ async def check_domain(domain: str) -> dict:
 
 async def check_all(domains: List[str]) -> Dict[str, dict]:
     """Run optional checks. Returns empty dict if no keys set."""
-    shodan_key = os.environ.get("SHODAN_API_KEY", "")
-    vt_key = os.environ.get("VIRUSTOTAL_KEY", "")
-
-    if not shodan_key and not vt_key:
-        return {}  # Silent skip — no keys, no output
+    if not any(_key(k) for k in _KEYS):
+        return {}
 
     from cloudflare_reporting.lib.concurrency import throttled_gather
     return await throttled_gather(
@@ -130,4 +252,9 @@ async def check_all(domains: List[str]) -> Dict[str, dict]:
 
 def has_any_keys() -> bool:
     """Check if any optional integration keys are configured."""
-    return bool(os.environ.get("SHODAN_API_KEY", "") or os.environ.get("VIRUSTOTAL_KEY", ""))
+    return any(_key(k) for k in _KEYS)
+
+
+def active_integrations() -> List[str]:
+    """Return list of configured integration names."""
+    return [name for name, env in _KEYS.items() if os.environ.get(env, "")]

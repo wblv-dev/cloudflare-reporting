@@ -37,6 +37,8 @@ from cloudflare_reporting.checks import blacklist
 from cloudflare_reporting.checks import reverse_dns
 from cloudflare_reporting.checks import web_security
 from cloudflare_reporting.checks import cert_transparency
+from cloudflare_reporting.checks import shodan_internetdb
+from cloudflare_reporting.checks import mozilla_observatory
 from cloudflare_reporting.checks import optional as optional_checks
 
 
@@ -224,13 +226,17 @@ async def _run_audit(args: argparse.Namespace) -> int:
         email_std_task  = asyncio.create_task(email_standards.check_all(resolved))
         web_sec_task    = asyncio.create_task(web_security.check_all(resolved))
         ct_task         = asyncio.create_task(cert_transparency.check_all(resolved))
+        internetdb_task = asyncio.create_task(shodan_internetdb.check_all(resolved))
+        obs_task        = asyncio.create_task(mozilla_observatory.check_all(resolved))
         osint_task      = asyncio.create_task(optional_checks.check_all(resolved))
 
         (email_results, dns_sec_results, blacklist_results,
          rdns_results, email_std_results, web_sec_results,
-         ct_results, osint_results) = await asyncio.gather(
+         ct_results, internetdb_results, obs_results,
+         osint_results) = await asyncio.gather(
             email_task, dns_sec_task, blacklist_task, rdns_task,
-            email_std_task, web_sec_task, ct_task, osint_task,
+            email_std_task, web_sec_task, ct_task, internetdb_task,
+            obs_task, osint_task,
         )
 
         # ── 4. Persist to SQLite ──────────────────────────────────────────
@@ -289,6 +295,8 @@ async def _run_audit(args: argparse.Namespace) -> int:
             email_std_results  = email_std_results,
             web_sec_results    = web_sec_results,
             ct_results         = ct_results,
+            internetdb_results = internetdb_results,
+            obs_results        = obs_results,
             osint_results      = osint_results,
         )
 
