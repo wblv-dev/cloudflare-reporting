@@ -27,7 +27,7 @@ Repository = "https://github.com/wblv-dev/cloudflare-reporting"
 include = ["cloudflare_reporting*"]
 
 [tool.setuptools.package-data]
-cloudflare_reporting = ["datasette_metadata.json"]
+cloudflare_reporting = ["datasette_metadata.json", "template.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

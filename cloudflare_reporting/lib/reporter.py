@@ -445,6 +445,14 @@ def _read_chartjs() -> str:
         return "/* Chart.js not found at /tmp/chartjs.min.js */"
 
 
+def _load_template() -> str:
+    """Load the HTML template from cloudflare_reporting/template.html."""
+    template_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    template_path = _os.path.join(template_dir, "template.html")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
 def write_html(
     domains: List[str],
     dns_results: Dict[str, dict],
@@ -458,6 +466,12 @@ def write_html(
     output_path: str = "",
 ) -> None:
     _estd = email_std_results or {}
+
+    # Load template
+    tpl = _load_template()
+
+    # Read Chart.js
+    chartjs_src = _read_chartjs()
 
     # Collect remediations
     remediations = collect_remediations(
@@ -477,7 +491,12 @@ def write_html(
     total_checks = total_pass + total_warn + total_fail + total_info
     compliance_pct = round(total_pass / total_checks * 100) if total_checks else 0
 
-    # Category breakdown for stacked bar chart
+    # Total DNS records
+    total_records = sum(
+        dns_results.get(d, {}).get("total", 0) for d in domains
+    )
+
+    # Category breakdown for stacked bars
     cat_data = _category_breakdown(
         domains, security_results, email_results,
         dns_sec_results, registrar_results, blacklist_results, rdns_results,
@@ -492,39 +511,58 @@ def write_html(
         )
         domain_grades[d] = dg
 
-    out = "\n".join([
-        _html_head(),
-        _html_header_banner(domains, compliance_pct),
-        '<div class="container">',
-        # Section 2: Executive Summary
-        _html_executive_summary(
-            domains, total_pass, total_warn, total_fail, total_info,
-            compliance_pct,
-        ),
-        # Section 3: Risk Overview
-        _html_risk_overview(cat_data),
-        # Section 4: Per-Domain Results
-        _html_per_domain_results(
-            domains, domain_grades, email_results, security_results,
-            dns_results, registrar_results, dns_sec_results,
-            blacklist_results, rdns_results,
-        ),
-        # Section 5: Findings & Remediations
-        _html_findings_section(remediations),
-        # Section 6: Detailed Check Results
-        _html_detailed_checks(
-            domains, security_results, email_results, _estd,
-            dns_sec_results, registrar_results, blacklist_results,
-            rdns_results, dns_results,
-        ),
-        '</div>',  # close .container
-        _html_footer(),
-        _html_charts_script(
-            total_pass, total_warn, total_fail, total_info,
-            cat_data, domains, domain_grades,
-        ),
-        '</body></html>',
-    ])
+    # Build dynamic HTML fragments
+    category_bars_html = _build_category_bars(cat_data)
+    heatmap_html = _build_heatmap(
+        domains, security_results, email_results,
+        dns_sec_results, registrar_results, blacklist_results, rdns_results,
+    )
+    domain_cards_html = _build_domain_cards(
+        domains, domain_grades, email_results, security_results,
+        dns_results, registrar_results, dns_sec_results,
+        blacklist_results, rdns_results,
+    )
+    findings_html = _build_findings(remediations)
+    detail_sections_html = _build_detail_sections(
+        domains, security_results, email_results, _estd,
+        dns_sec_results, registrar_results, blacklist_results,
+        rdns_results, dns_results,
+    )
+
+    # Build audit JSON for Chart.js
+    domain_chart_list = []
+    for d in domains:
+        dg = domain_grades.get(d, {})
+        domain_chart_list.append({
+            "pass": dg.get("PASS", 0),
+            "warn": dg.get("WARN", 0),
+            "fail": dg.get("FAIL", 0),
+        })
+    audit_json = _json.dumps({
+        "pass": total_pass,
+        "warn": total_warn,
+        "fail": total_fail,
+        "info": total_info,
+        "domainCharts": domain_chart_list,
+    })
+
+    # Replace placeholders in template
+    out = tpl
+    out = out.replace("/*CHARTJS_PLACEHOLDER*/", chartjs_src)
+    out = out.replace("{{GENERATED}}", _esc(_ts()))
+    out = out.replace("{{DOMAIN_COUNT}}", str(len(domains)))
+    out = out.replace("{{TOTAL_RECORDS}}", str(total_records))
+    out = out.replace("{{COMPLIANCE_PCT}}", str(compliance_pct))
+    out = out.replace("{{PASS_COUNT}}", str(total_pass))
+    out = out.replace("{{WARN_COUNT}}", str(total_warn))
+    out = out.replace("{{FAIL_COUNT}}", str(total_fail))
+    out = out.replace("{{CATEGORY_BARS}}", category_bars_html)
+    out = out.replace("{{HEATMAP}}", heatmap_html)
+    out = out.replace("{{DOMAIN_CARDS}}", domain_cards_html)
+    out = out.replace("{{FINDING_COUNT}}", str(len(remediations)))
+    out = out.replace("{{FINDINGS}}", findings_html)
+    out = out.replace("{{DETAIL_SECTIONS}}", detail_sections_html)
+    out = out.replace("{{AUDIT_JSON}}", audit_json)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(out)
@@ -617,7 +655,7 @@ def _category_breakdown(
     cats = {
         "Zone Security": {"PASS": 0, "WARN": 0, "FAIL": 0},
         "Email": {"PASS": 0, "WARN": 0, "FAIL": 0},
-        "DNS": {"PASS": 0, "WARN": 0, "FAIL": 0},
+        "DNS Security": {"PASS": 0, "WARN": 0, "FAIL": 0},
         "Infrastructure": {"PASS": 0, "WARN": 0, "FAIL": 0},
     }
     for d in domains:
@@ -637,8 +675,8 @@ def _category_breakdown(
         ds = dns_sec_results.get(d, {})
         for key in ("dnssec", "caa", "dangling"):
             g = ds.get(key, {}).get("grade", "INFO")
-            if g in cats["DNS"]:
-                cats["DNS"][g] += 1
+            if g in cats["DNS Security"]:
+                cats["DNS Security"][g] += 1
 
         reg = registrar_results.get(d, {})
         for key in ("expiry", "lock"):
@@ -680,294 +718,112 @@ _PRIORITY_BORDER = {
 }
 
 
+# ── Heatmap color helpers ────────────────────────────────────────────────────
+
+_HEAT_CLASS = {
+    "PASS": "heat-green",
+    "WARN": "heat-amber",
+    "FAIL": "heat-red",
+    "INFO": "heat-green",
+}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-# HTML sections
+# HTML fragment builders  (each returns a string to inject into {{PLACEHOLDER}})
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _html_head() -> str:
-    chartjs_src = _read_chartjs()
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Audit Report</title>
-<script>{chartjs_src}</script>
-<style>
-/* ── Reset & Base ──────────────────────────────────────────── */
-*,*::before,*::after{{margin:0;padding:0;box-sizing:border-box}}
-:root{{
-  --bg:#0f172a;--bg-card:#1e293b;--text:#e2e8f0;--text-muted:#94a3b8;
-  --border:#334155;--th-bg:#1e3a5f;--th-text:#e2e8f0;--hover-row:#334155;
-  --code-bg:#334155;--shadow:0 2px 8px rgba(0,0,0,.3);
-  --accent:#60a5fa;--accent-light:#93c5fd;
-  --pass:#059669;--pass-bg:#d1fae5;--pass-bg-dark:#064e3b;--pass-text-dark:#6ee7b7;
-  --warn:#d97706;--warn-bg:#fef3c7;--warn-bg-dark:#78350f;--warn-text-dark:#fcd34d;
-  --fail:#dc2626;--fail-bg:#fee2e2;--fail-bg-dark:#7f1d1d;--fail-text-dark:#fca5a5;
-  --info:#3b82f6;--info-bg:#dbeafe;--info-bg-dark:#1e3a8a;--info-text-dark:#93c5fd;
-}}
-body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  line-height:1.6;color:var(--text);background:var(--bg)}}
-a{{color:var(--accent)}}
-
-/* ── Header Banner ─────────────────────────────────────────── */
-.header-banner{{
-  background:linear-gradient(135deg,#0f172a 0%,#1e293b 40%,#1e3a5f 100%);
-  color:#e2e8f0;padding:48px 24px;border-bottom:3px solid #334155}}
-.header-banner-inner{{max-width:1200px;margin:0 auto;display:flex;
-  justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px}}
-.header-banner h1{{font-size:2em;font-weight:700;letter-spacing:-0.5px}}
-.header-banner .subtitle{{opacity:.7;font-size:.95em;margin-top:4px}}
-.compliance-hero{{text-align:center}}
-.compliance-hero .pct{{font-size:3.5em;font-weight:800;line-height:1;
-  background:linear-gradient(135deg,#60a5fa,#34d399);-webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;background-clip:text}}
-.compliance-hero .pct-label{{font-size:.85em;opacity:.7;margin-top:4px}}
-
-/* ── Container ─────────────────────────────────────────────── */
-.container{{max-width:1200px;margin:0 auto;padding:32px 24px}}
-
-/* ── Section headers ───────────────────────────────────────── */
-.section-title{{font-size:1.4em;font-weight:700;color:#e2e8f0;margin:48px 0 20px;
-  padding-bottom:12px;border-bottom:2px solid #334155}}
-
-/* ── KPI cards ─────────────────────────────────────────────── */
-.kpi-row{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin:28px 0}}
-.kpi-card{{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
-  padding:28px;text-align:center;box-shadow:var(--shadow);transition:transform .2s}}
-.kpi-card:hover{{transform:translateY(-3px)}}
-.kpi-card .kpi-num{{font-size:2.8em;font-weight:800;line-height:1.1}}
-.kpi-card .kpi-label{{font-size:.8em;text-transform:uppercase;letter-spacing:1px;
-  color:var(--text-muted);margin-top:6px}}
-.kpi-green .kpi-num{{color:#34d399}}
-.kpi-amber .kpi-num{{color:#fbbf24}}
-.kpi-red .kpi-num{{color:#f87171}}
-.kpi-blue .kpi-num{{color:#60a5fa}}
-
-/* ── Chart containers ──────────────────────────────────────── */
-.chart-row{{display:grid;grid-template-columns:340px 1fr;gap:32px;align-items:start;margin:28px 0}}
-.chart-box{{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
-  padding:24px;box-shadow:var(--shadow)}}
-.chart-box h3{{font-size:1em;font-weight:600;margin-bottom:16px;color:var(--text-muted)}}
-.chart-box canvas{{max-width:100%;height:auto}}
-
-/* ── Domain result cards ───────────────────────────────────── */
-.domain-result{{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
-  padding:24px;margin-bottom:20px;box-shadow:var(--shadow)}}
-.domain-result-header{{display:flex;justify-content:space-between;align-items:center;
-  flex-wrap:wrap;gap:16px;margin-bottom:16px}}
-.domain-result-header h3{{font-size:1.15em;font-weight:700;color:#e2e8f0}}
-.domain-result-badges{{display:flex;gap:8px;flex-wrap:wrap}}
-.domain-result-chart{{display:flex;align-items:center;gap:24px;flex-wrap:wrap}}
-.domain-mini-donut{{width:100px;height:100px;flex-shrink:0}}
-.domain-detail-toggle{{background:none;border:1px solid var(--border);color:var(--accent);
-  padding:8px 18px;border-radius:8px;cursor:pointer;font-size:.85em;margin-top:12px;
-  transition:background .2s}}
-.domain-detail-toggle:hover{{background:rgba(96,165,250,.1)}}
-.domain-detail-body{{max-height:0;overflow:hidden;transition:max-height .5s ease}}
-.domain-detail-body.open{{max-height:5000px}}
-
-/* ── Finding cards ─────────────────────────────────────────── */
-.finding-card{{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
-  padding:20px 24px;margin-bottom:14px;box-shadow:var(--shadow);
-  border-left:4px solid #94a3b8}}
-.finding-card.prio-critical{{border-left-color:#dc2626}}
-.finding-card.prio-high{{border-left-color:#d97706}}
-.finding-card.prio-medium{{border-left-color:#eab308}}
-.finding-card.prio-low{{border-left-color:#3b82f6}}
-.finding-header{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}}
-.finding-risk{{margin:10px 0;padding:14px;background:rgba(220,38,38,.08);
-  border-radius:8px;font-size:.9em;line-height:1.6;color:#fca5a5}}
-.finding-steps{{margin:12px 0 0 20px;line-height:1.9;font-size:.9em}}
-.finding-steps li{{margin-bottom:4px;color:var(--text-muted)}}
-
-/* ── Collapsible sections ──────────────────────────────────── */
-.collapsible-section{{margin-bottom:16px}}
-.collapsible-header{{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
-  padding:16px 24px;cursor:pointer;display:flex;justify-content:space-between;
-  align-items:center;user-select:none;transition:background .2s;box-shadow:var(--shadow)}}
-.collapsible-header:hover{{background:#263548}}
-.collapsible-header h3{{font-size:1em;font-weight:600;color:var(--text)}}
-.collapsible-chevron{{transition:transform .3s;font-size:.8em;color:var(--text-muted)}}
-.collapsible-section.open .collapsible-chevron{{transform:rotate(180deg)}}
-.collapsible-body{{max-height:0;overflow:hidden;transition:max-height .5s ease}}
-.collapsible-section.open .collapsible-body{{max-height:10000px}}
-.collapsible-body-inner{{padding:16px 0}}
-
-/* ── Tables ────────────────────────────────────────────────── */
-table{{width:100%;border-collapse:collapse;margin:12px 0;border-radius:10px;
-  overflow:hidden;box-shadow:var(--shadow);background:var(--bg-card)}}
-th{{background:var(--th-bg);color:var(--th-text);padding:12px 16px;text-align:left;
-  font-size:.78em;font-weight:600;text-transform:uppercase;letter-spacing:.5px;
-  white-space:nowrap}}
-td{{padding:12px 16px;border-bottom:1px solid var(--border);font-size:.88em;
-  vertical-align:top;color:var(--text)}}
-tr:last-child td{{border-bottom:none}}
-tr:hover td{{background:var(--hover-row)}}
-
-/* ── Badges ────────────────────────────────────────────────── */
-.badge{{display:inline-block;padding:3px 10px;border-radius:12px;
-  font-size:.8em;font-weight:600;white-space:nowrap}}
-.badge-success{{background:var(--pass-bg-dark);color:var(--pass-text-dark)}}
-.badge-warning{{background:var(--warn-bg-dark);color:var(--warn-text-dark)}}
-.badge-danger{{background:var(--fail-bg-dark);color:var(--fail-text-dark)}}
-.badge-info{{background:var(--info-bg-dark);color:var(--info-text-dark)}}
-
-/* ── Tooltips ──────────────────────────────────────────────── */
-.has-tooltip{{position:relative;border-bottom:1px dotted var(--text-muted);cursor:help}}
-.has-tooltip::after{{content:attr(data-tooltip);position:absolute;top:100%;margin-top:8px;
-  left:0;background:#334155;color:#f1f5f9;padding:8px 12px;
-  border-radius:8px;font-size:.78em;font-weight:400;white-space:normal;width:max-content;
-  max-width:300px;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:1000;
-  opacity:0;pointer-events:none;transition:opacity .2s .3s,transform .2s .3s;
-  transform:translateY(-4px)}}
-.has-tooltip:hover::after{{opacity:1;transform:translateY(0)}}
-.has-tooltip::before{{content:"";position:absolute;top:100%;margin-top:-4px;left:12px;
-  border:6px solid transparent;border-bottom-color:#334155;
-  z-index:1001;opacity:0;pointer-events:none;transition:opacity .2s .3s}}
-.has-tooltip:hover::before{{opacity:1}}
-td{{position:relative}}
-th .has-tooltip{{color:inherit;border-bottom-color:rgba(255,255,255,.4)}}
-
-/* ── Code ──────────────────────────────────────────────────── */
-code{{font-family:'SF Mono',Monaco,Consolas,monospace;background:var(--code-bg);
-  padding:2px 6px;border-radius:4px;font-size:.85em;color:#93c5fd}}
-
-/* ── Misc ──────────────────────────────────────────────────── */
-.empty-state{{text-align:center;padding:40px;color:var(--text-muted);font-size:.95em}}
-.footer{{text-align:center;padding:40px 24px;color:var(--text-muted);font-size:.85em;
-  border-top:1px solid var(--border);margin-top:48px}}
-.footer a{{color:var(--accent);text-decoration:none}}
-.footer a:hover{{text-decoration:underline}}
-.priority-group-header{{display:flex;align-items:center;gap:10px;margin:28px 0 14px;
-  font-size:1.05em;font-weight:600}}
-
-/* ── Responsive ────────────────────────────────────────────── */
-@media(max-width:900px){{
-  .chart-row{{grid-template-columns:1fr}}
-  .header-banner-inner{{flex-direction:column;text-align:center}}
-  .compliance-hero{{margin-top:8px}}
-}}
-@media(max-width:600px){{
-  .kpi-row{{grid-template-columns:1fr 1fr}}
-  .container{{padding:20px 14px}}
-  .header-banner{{padding:32px 16px}}
-  .header-banner h1{{font-size:1.5em}}
-  td,th{{padding:8px 10px;font-size:.8em}}
-}}
-
-/* ── Print styles ──────────────────────────────────────────── */
-@media print{{
-  body{{background:#fff!important;color:#1a1a2e!important;font-size:11pt}}
-  .header-banner{{background:#1a1a2e!important;-webkit-print-color-adjust:exact;
-    print-color-adjust:exact}}
-  .container{{padding:0}}
-  .bg-card,.domain-result,.finding-card,.chart-box,.kpi-card,.collapsible-header{{
-    background:#fff!important;border-color:#e2e8f0!important;color:#1a1a2e!important;
-    box-shadow:none!important}}
-  .kpi-card .kpi-label,.finding-steps li,td,th,.collapsible-header h3{{
-    color:#1a1a2e!important}}
-  .badge-success{{background:#d1fae5!important;color:#065f46!important}}
-  .badge-warning{{background:#fef3c7!important;color:#92400e!important}}
-  .badge-danger{{background:#fee2e2!important;color:#991b1b!important}}
-  .badge-info{{background:#dbeafe!important;color:#1e40af!important}}
-  code{{background:#f1f5f9!important;color:#1e40af!important}}
-  .collapsible-body{{max-height:none!important}}
-  .domain-detail-body{{max-height:none!important}}
-  .domain-detail-toggle{{display:none}}
-  .section-title{{color:#1a1a2e!important;border-color:#e2e8f0!important;
-    page-break-before:always}}
-  .section-title:first-of-type{{page-break-before:avoid}}
-  th{{background:#0f3460!important;color:#fff!important;
-    -webkit-print-color-adjust:exact;print-color-adjust:exact}}
-  td{{border-color:#e2e8f0!important}}
-  tr:hover td{{background:transparent!important}}
-  .finding-risk{{background:rgba(220,38,38,.05)!important;color:#991b1b!important}}
-}}
-</style>
-</head>
-<body>"""
+def _build_category_bars(cat_data: dict) -> str:
+    """Build horizontal stacked progress bars for each category."""
+    parts = []
+    for cat_name, counts in cat_data.items():
+        total = counts["PASS"] + counts["WARN"] + counts["FAIL"]
+        if total == 0:
+            pct_pass = pct_warn = pct_fail = 0
+        else:
+            pct_pass = round(counts["PASS"] / total * 100, 1)
+            pct_warn = round(counts["WARN"] / total * 100, 1)
+            pct_fail = round(counts["FAIL"] / total * 100, 1)
+        score = f'{counts["PASS"]}/{total}'
+        parts.append(
+            f'<div class="progress-row">'
+            f'<div class="label">{_esc(cat_name)}</div>'
+            f'<div class="progress-track">'
+            f'<div class="progress-segment" style="width:{pct_pass}%;background:#059669"></div>'
+            f'<div class="progress-segment" style="width:{pct_warn}%;background:#d97706"></div>'
+            f'<div class="progress-segment" style="width:{pct_fail}%;background:#dc2626"></div>'
+            f'</div>'
+            f'<div class="score">{score}</div>'
+            f'</div>'
+        )
+    return "\n".join(parts)
 
 
-# ── Section 1: Header Banner ─────────────────────────────────────────────────
-
-def _html_header_banner(domains: List[str], compliance_pct: int) -> str:
-    domain_list = ", ".join(f"<code>{_esc(d)}</code>" for d in domains)
-    return f"""
-<div class="header-banner">
-  <div class="header-banner-inner">
-    <div>
-      <h1>Security Audit Report</h1>
-      <div class="subtitle">Generated {_ts()} {_DASH} {len(domains)} domain{"s" if len(domains) != 1 else ""} audited</div>
-      <div class="subtitle" style="margin-top:4px">{domain_list}</div>
-    </div>
-    <div class="compliance-hero">
-      <div class="pct">{compliance_pct}%</div>
-      <div class="pct-label">Compliant</div>
-    </div>
-  </div>
-</div>"""
-
-
-# ── Section 2: Executive Summary ─────────────────────────────────────────────
-
-def _html_executive_summary(
-    domains, total_pass, total_warn, total_fail, total_info, compliance_pct,
+def _build_heatmap(
+    domains, security_results, email_results,
+    dns_sec_results, registrar_results, blacklist_results, rdns_results,
 ) -> str:
-    total_checks = total_pass + total_warn + total_fail + total_info
-    return f"""
-<h2 class="section-title">Executive Summary</h2>
-<div class="chart-row">
-  <div class="chart-box">
-    <h3>Overall Compliance</h3>
-    <canvas id="execDonut" width="280" height="280"></canvas>
-  </div>
-  <div>
-    <div class="kpi-row">
-      <div class="kpi-card kpi-blue">
-        <div class="kpi-num">{len(domains)}</div>
-        <div class="kpi-label">Domains Audited</div>
-      </div>
-      <div class="kpi-card kpi-green">
-        <div class="kpi-num">{total_pass}</div>
-        <div class="kpi-label">Checks Passed</div>
-      </div>
-      <div class="kpi-card kpi-amber">
-        <div class="kpi-num">{total_warn}</div>
-        <div class="kpi-label">Warnings</div>
-      </div>
-      <div class="kpi-card kpi-red">
-        <div class="kpi-num">{total_fail}</div>
-        <div class="kpi-label">Critical Failures</div>
-      </div>
-    </div>
-    <div style="margin-top:12px;color:var(--text-muted);font-size:.9em">
-      {total_checks} total checks across {len(domains)} domain{"s" if len(domains) != 1 else ""}.
-      {compliance_pct}% of all checks passed successfully.
-    </div>
-  </div>
-</div>"""
+    """Build a risk heatmap grid: domains as rows, categories as columns."""
+    categories = ["Zone Security", "Email", "DNS Security", "Infrastructure"]
+
+    # Header row
+    cells = ['<div class="heatmap">']
+    cells.append('<div class="header-cell"></div>')  # empty top-left
+    for cat in categories:
+        cells.append(f'<div class="header-cell">{_esc(cat)}</div>')
+
+    for domain in domains:
+        cells.append(f'<div class="label-cell">{_esc(domain)}</div>')
+
+        # Zone Security: worst grade from security_results
+        sec = security_results.get(domain)
+        if sec:
+            zone_grades = [r.get("grade", "INFO") for r in sec.get("results", [])]
+            zone_worst = _worst(zone_grades) if zone_grades else "INFO"
+        else:
+            zone_worst = "INFO"
+
+        # Email: worst of SPF + DMARC
+        email = email_results.get(domain, {})
+        email_grades = [
+            email.get("spf", {}).get("grade", "INFO"),
+            email.get("dmarc", {}).get("grade", "INFO"),
+        ]
+        email_worst = _worst(email_grades)
+
+        # DNS Security: worst of DNSSEC + CAA + Dangling
+        ds = dns_sec_results.get(domain, {})
+        dns_grades = [
+            ds.get("dnssec", {}).get("grade", "INFO"),
+            ds.get("caa", {}).get("grade", "INFO"),
+            ds.get("dangling", {}).get("grade", "INFO"),
+        ]
+        dns_worst = _worst(dns_grades)
+
+        # Infrastructure: worst of expiry + lock + blacklist + rdns
+        reg = registrar_results.get(domain, {})
+        infra_grades = [
+            reg.get("expiry", {}).get("grade", "INFO"),
+            reg.get("lock", {}).get("grade", "INFO"),
+            blacklist_results.get(domain, {}).get("grade", "INFO"),
+            rdns_results.get(domain, {}).get("grade", "INFO"),
+        ]
+        infra_worst = _worst(infra_grades)
+
+        for w in [zone_worst, email_worst, dns_worst, infra_worst]:
+            hcls = _HEAT_CLASS.get(w, "heat-green")
+            cells.append(f'<div class="cell {hcls}">{_esc(w)}</div>')
+
+    cells.append('</div>')
+    return "\n".join(cells)
 
 
-# ── Section 3: Risk Overview ─────────────────────────────────────────────────
-
-def _html_risk_overview(cat_data: dict) -> str:
-    return """
-<h2 class="section-title">Risk Overview</h2>
-<div class="chart-box" style="max-width:900px">
-  <h3>Checks by Category</h3>
-  <canvas id="riskBar" height="200"></canvas>
-</div>"""
-
-
-# ── Section 4: Per-Domain Results ────────────────────────────────────────────
-
-def _html_per_domain_results(
+def _build_domain_cards(
     domains, domain_grades, email_results, security_results,
     dns_results, registrar_results, dns_sec_results,
     blacklist_results, rdns_results,
 ) -> str:
-    parts = ['<h2 class="section-title">Per-Domain Results</h2>']
+    """Build per-domain expandable cards with mini donut canvas and badge summaries."""
+    parts = []
 
     for idx, domain in enumerate(domains):
         dg = domain_grades.get(domain, {})
@@ -992,7 +848,7 @@ def _html_per_domain_results(
         bl_g = blacklist_results.get(domain, {}).get("grade", "INFO")
         rdns_g = rdns_results.get(domain, {}).get("grade", "INFO")
 
-        # Build detail table
+        # Build detail table rows
         detail_rows = ""
         if sec:
             for r in sec["results"]:
@@ -1052,158 +908,107 @@ def _html_per_domain_results(
 
         dns_count = dns_results.get(domain, {}).get("total", 0)
 
-        parts.append(f"""
-<div class="domain-result" data-domain="{_esc(domain)}">
-  <div class="domain-result-header">
-    <h3>{_esc(domain)} <span style="color:var(--text-muted);font-weight:400;font-size:.8em">
-      {_DASH} {dns_count} DNS records</span></h3>
-    <div class="domain-result-badges">
-      {_badge(spf_g, "SPF")} {_badge(dmarc_g, "DMARC")} {_badge(dnssec_g, "DNSSEC")}
-      {_badge(caa_g, "CAA")} {zone_badge} {_badge(bl_g, "Blacklist")} {_badge(rdns_g, "rDNS")}
-    </div>
-  </div>
-  <div class="domain-result-chart">
-    <div class="domain-mini-donut">
-      <canvas id="domainDonut{idx}" width="100" height="100"></canvas>
-    </div>
-    <div style="font-size:.88em;color:var(--text-muted)">
-      <span style="color:#34d399">&#9679;</span> {dg.get("PASS", 0)} passed &nbsp;
-      <span style="color:#fbbf24">&#9679;</span> {dg.get("WARN", 0)} warnings &nbsp;
-      <span style="color:#f87171">&#9679;</span> {dg.get("FAIL", 0)} failures
-    </div>
-  </div>
-  <button class="domain-detail-toggle" onclick="toggleDomainDetail(this)">Show detailed results</button>
-  <div class="domain-detail-body">
-    <table>
-      <thead><tr><th>Category</th><th>Check</th><th>Recommended</th><th>Actual</th><th>Grade</th></tr></thead>
-      <tbody>{detail_rows}</tbody>
-    </table>
-  </div>
-</div>""")
+        badges_html = (
+            f'{_badge(spf_g, "SPF")} {_badge(dmarc_g, "DMARC")} '
+            f'{_badge(dnssec_g, "DNSSEC")} {_badge(caa_g, "CAA")} '
+            f'{zone_badge} {_badge(bl_g, "Blacklist")} {_badge(rdns_g, "rDNS")}'
+        )
+
+        parts.append(
+            f'<div class="domain-card" data-domain="{_esc(domain)}">'
+            f'<div class="domain-header" onclick="toggleDomain(this)">'
+            f'<div>'
+            f'<h3>{_esc(domain)} <span style="color:#94a3b8;font-weight:400;font-size:.8em">'
+            f'{_DASH} {dns_count} DNS records</span></h3>'
+            f'<div class="domain-badges" style="margin-top:8px">{badges_html}</div>'
+            f'</div>'
+            f'<div style="display:flex;align-items:center;gap:16px">'
+            f'<div class="domain-chart">'
+            f'<canvas id="domainDonut{idx}" width="80" height="80"></canvas>'
+            f'</div>'
+            f'<span class="chevron">&#9660;</span>'
+            f'</div>'
+            f'</div>'
+            f'<div class="domain-body">'
+            f'<div class="domain-body-inner">'
+            f'<table>'
+            f'<thead><tr><th>Category</th><th>Check</th><th>Recommended</th>'
+            f'<th>Actual</th><th>Grade</th></tr></thead>'
+            f'<tbody>{detail_rows}</tbody>'
+            f'</table>'
+            f'</div>'
+            f'</div>'
+            f'</div>'
+        )
 
     return "\n".join(parts)
 
 
-# ── Section 5: Findings & Remediations ───────────────────────────────────────
-
-def _html_findings_section(remediations: List[Dict]) -> str:
+def _build_findings(remediations: List[Dict]) -> str:
+    """Build remediation finding cards."""
     if not remediations:
-        return (
-            '<h2 class="section-title">Findings &amp; Remediations</h2>'
-            '<div class="empty-state">No findings requiring attention {_DASH} all checks passed.</div>'
-        )
+        return '<div style="text-align:center;padding:40px;color:#94a3b8">No findings requiring attention.</div>'
 
-    # Group by priority
-    groups: Dict[str, list] = {}
-    for r in remediations:
-        prio = r.get("priority", "Low")
-        groups.setdefault(prio, []).append(r)
+    parts = []
 
-    count_by_prio = " / ".join(
-        f'{len(groups.get(p, []))} {p}'
-        for p in ["Critical", "High", "Medium", "Low"]
-        if groups.get(p)
-    )
-
-    sections = [
-        f'<h2 class="section-title">Findings &amp; Remediations</h2>',
-        f'<div style="margin-bottom:20px;color:var(--text-muted);font-size:.9em">'
-        f'{len(remediations)} finding{"s" if len(remediations) != 1 else ""} requiring attention: {count_by_prio}</div>',
-    ]
-
-    for prio in ["Critical", "High", "Medium", "Low"]:
-        items = groups.get(prio, [])
-        if not items:
-            continue
-
-        prio_cls = _PRIORITY_CLASS.get(prio, "badge-info")
-        prio_color = _PRIORITY_COLOR.get(prio, "#94a3b8")
+    for finding in remediations:
+        prio = finding.get("priority", "Low")
         prio_css = prio.lower()
+        prio_cls = _PRIORITY_CLASS.get(prio, "badge-info")
+        grade_badge = _badge(finding["grade"])
+        prio_badge = f'<span class="badge {prio_cls}">{_esc(prio)}</span>'
 
-        sections.append(
-            f'<div class="priority-group-header">'
-            f'<span class="badge {prio_cls}">{_esc(prio)}</span>'
-            f'<span style="color:{prio_color}">'
-            f'{len(items)} finding{"s" if len(items) != 1 else ""}</span></div>'
+        steps = finding.get("steps", [])
+        steps_html = ""
+        if steps:
+            step_items = "".join(f'<li>{_esc(s)}</li>' for s in steps)
+            steps_html = f'<ol class="finding-steps">{step_items}</ol>'
+
+        parts.append(
+            f'<div class="finding {prio_css}" data-domain="{_esc(finding.get("domain", ""))}">'
+            f'<div class="finding-header">'
+            f'{prio_badge} {grade_badge} '
+            f'<span class="finding-domain">{_esc(finding.get("domain", ""))}</span>'
+            f'<span class="finding-check">{_tip(finding.get("check", ""))}</span>'
+            f'</div>'
+            f'<div class="finding-risk"><strong>Risk:</strong> {_esc(finding.get("risk", ""))}</div>'
+            f'{steps_html}'
+            f'</div>'
         )
 
-        for finding in items:
-            grade_badge = _badge(finding["grade"])
-            prio_badge = f'<span class="badge {prio_cls}">{_esc(prio)}</span>'
-
-            steps = finding.get("steps", [])
-            steps_html = ""
-            if steps:
-                step_items = "".join(f'<li>{_esc(s)}</li>' for s in steps)
-                steps_html = (
-                    f'<div style="margin-top:10px"><strong style="color:var(--text)">Steps to fix:</strong></div>'
-                    f'<ol class="finding-steps">{step_items}</ol>'
-                )
-
-            sections.append(
-                f'<div class="finding-card prio-{prio_css}" data-domain="{_esc(finding.get("domain", ""))}">'
-                f'<div class="finding-header">'
-                f'{prio_badge} {grade_badge} '
-                f'<strong>{_tip(finding.get("check", ""))}</strong>'
-                f'<span style="color:var(--text-muted);font-size:.85em">'
-                f'on <code>{_esc(finding.get("domain", ""))}</code></span>'
-                f'</div>'
-                f'<div class="finding-risk"><strong>Risk:</strong> {_esc(finding.get("risk", ""))}</div>'
-                f'{steps_html}'
-                f'</div>'
-            )
-
-    return "\n".join(sections)
+    return "\n".join(parts)
 
 
-# ── Section 6: Detailed Check Results ────────────────────────────────────────
-
-def _html_detailed_checks(
+def _build_detail_sections(
     domains, security_results, email_results, email_std_results,
     dns_sec_results, registrar_results, blacklist_results,
     rdns_results, dns_results,
 ) -> str:
-    parts = ['<h2 class="section-title">Detailed Check Results</h2>']
-
-    # 6a: Zone Security Settings
-    parts.append(_html_detail_zone_security(domains, security_results))
-
-    # 6b: Email Security
-    parts.append(_html_detail_email(domains, email_results))
-
-    # 6c: Email Standards
-    parts.append(_html_detail_email_standards(domains, email_std_results))
-
-    # 6d: DNS Security
-    parts.append(_html_detail_dns_security(domains, dns_sec_results))
-
-    # 6e: Infrastructure
-    parts.append(_html_detail_infrastructure(
+    """Build all collapsible detailed check sections."""
+    parts = []
+    parts.append(_build_detail_zone_security(domains, security_results))
+    parts.append(_build_detail_email(domains, email_results))
+    parts.append(_build_detail_email_standards(domains, email_std_results))
+    parts.append(_build_detail_dns_security(domains, dns_sec_results))
+    parts.append(_build_detail_infrastructure(
         domains, registrar_results, blacklist_results, rdns_results,
     ))
-
-    # 6f: DNS Inventory
-    parts.append(_html_detail_dns_inventory(domains, dns_results))
-
+    parts.append(_build_detail_dns_inventory(domains, dns_results))
     return "\n".join(parts)
 
 
 def _collapsible(section_id: str, title: str, body: str) -> str:
     return (
-        f'<div class="collapsible-section" id="section-{_esc(section_id)}">'
-        f'<div class="collapsible-header" onclick="toggleCollapsible(this)">'
-        f'<h3>{title}</h3>'
-        f'<span class="collapsible-chevron" aria-hidden="true">&#9660;</span>'
-        f'</div>'
-        f'<div class="collapsible-body"><div class="collapsible-body-inner">{body}</div></div>'
-        f'</div>'
+        f'<button class="collapse-btn" onclick="toggleCollapse(this)">'
+        f'&#9660; {title}</button>'
+        f'<div class="collapse-content">{body}</div>'
     )
 
 
-def _html_detail_zone_security(domains, security_results) -> str:
+def _build_detail_zone_security(domains, security_results) -> str:
     if not security_results:
         return _collapsible("zone", "Zone Security Settings",
-                            '<div class="empty-state">No zone security data available.</div>')
+                            '<p style="color:#94a3b8;padding:16px">No zone security data available.</p>')
     rows = ""
     for domain in domains:
         sec = security_results.get(domain)
@@ -1227,10 +1032,10 @@ def _html_detail_zone_security(domains, security_results) -> str:
     return _collapsible("zone", "Zone Security Settings", table)
 
 
-def _html_detail_email(domains, email_results) -> str:
+def _build_detail_email(domains, email_results) -> str:
     if not email_results:
         return _collapsible("email", "Email Security",
-                            '<div class="empty-state">No email security data available.</div>')
+                            '<p style="color:#94a3b8;padding:16px">No email security data available.</p>')
 
     body_parts = []
     for domain in domains:
@@ -1253,11 +1058,19 @@ def _html_detail_email(domains, email_results) -> str:
 
         spf_record = ""
         if spf.get("record"):
-            spf_record = f'<div style="margin:8px 0"><code style="word-break:break-all;display:block;padding:10px;border-radius:6px">{_esc(spf["record"])}</code></div>'
+            spf_record = (
+                f'<div style="margin:8px 0"><code style="word-break:break-all;'
+                f'display:block;padding:10px;border-radius:6px">'
+                f'{_esc(spf["record"])}</code></div>'
+            )
 
         dmarc_record = ""
         if dmarc.get("record"):
-            dmarc_record = f'<div style="margin:8px 0"><code style="word-break:break-all;display:block;padding:10px;border-radius:6px">{_esc(dmarc["record"])}</code></div>'
+            dmarc_record = (
+                f'<div style="margin:8px 0"><code style="word-break:break-all;'
+                f'display:block;padding:10px;border-radius:6px">'
+                f'{_esc(dmarc["record"])}</code></div>'
+            )
 
         dkim_html = ""
         if result["dkim"]:
@@ -1285,7 +1098,7 @@ def _html_detail_email(domains, email_results) -> str:
             )
 
         body_parts.append(
-            f'<h4 style="color:var(--accent);margin:20px 0 8px"><code>{_esc(domain)}</code></h4>'
+            f'<h4 style="color:#60a5fa;margin:20px 0 8px"><code>{_esc(domain)}</code></h4>'
             f'<table><thead><tr><th>Check</th><th>Grade</th><th>Details</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>'
             f'{spf_record}{dmarc_record}{mx_html}{dkim_html}'
@@ -1294,10 +1107,13 @@ def _html_detail_email(domains, email_results) -> str:
     return _collapsible("email", "Email Security", "\n".join(body_parts))
 
 
-def _html_detail_email_standards(domains, email_std_results) -> str:
+def _build_detail_email_standards(domains, email_std_results) -> str:
     if not email_std_results:
-        return _collapsible("email-std", f"Email Standards ({_tip('MTA-STS')} / {_tip('TLSRPT')} / {_tip('BIMI')})",
-                            '<div class="empty-state">No email standards data available.</div>')
+        return _collapsible(
+            "email-std",
+            f"Email Standards ({_tip('MTA-STS')} / {_tip('TLSRPT')} / {_tip('BIMI')})",
+            '<p style="color:#94a3b8;padding:16px">No email standards data available.</p>',
+        )
 
     rows = ""
     for domain in domains:
@@ -1330,10 +1146,10 @@ def _html_detail_email_standards(domains, email_std_results) -> str:
     )
 
 
-def _html_detail_dns_security(domains, dns_sec_results) -> str:
+def _build_detail_dns_security(domains, dns_sec_results) -> str:
     if not dns_sec_results:
         return _collapsible("dns-sec", "DNS Security",
-                            '<div class="empty-state">No DNS security data available.</div>')
+                            '<p style="color:#94a3b8;padding:16px">No DNS security data available.</p>')
 
     body_parts = []
     for domain in domains:
@@ -1384,7 +1200,7 @@ def _html_detail_dns_security(domains, dns_sec_results) -> str:
             )
 
         body_parts.append(
-            f'<h4 style="color:var(--accent);margin:20px 0 8px"><code>{_esc(domain)}</code></h4>'
+            f'<h4 style="color:#60a5fa;margin:20px 0 8px"><code>{_esc(domain)}</code></h4>'
             f'<table><thead><tr><th>Check</th><th>Grade</th><th>Details</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>'
             f'{caa_html}{dangling_html}'
@@ -1393,7 +1209,7 @@ def _html_detail_dns_security(domains, dns_sec_results) -> str:
     return _collapsible("dns-sec", "DNS Security", "\n".join(body_parts))
 
 
-def _html_detail_infrastructure(
+def _build_detail_infrastructure(
     domains, registrar_results, blacklist_results, rdns_results,
 ) -> str:
     rows = ""
@@ -1428,10 +1244,10 @@ def _html_detail_infrastructure(
     return _collapsible("infra", "Infrastructure (Registrar, Blacklist, Reverse DNS)", table)
 
 
-def _html_detail_dns_inventory(domains, dns_results) -> str:
+def _build_detail_dns_inventory(domains, dns_results) -> str:
     if not dns_results:
         return _collapsible("dns-inv", "DNS Inventory",
-                            '<div class="empty-state">No DNS record data available.</div>')
+                            '<p style="color:#94a3b8;padding:16px">No DNS record data available.</p>')
 
     body_parts = []
     for domain in domains:
@@ -1458,9 +1274,9 @@ def _html_detail_dns_inventory(domains, dns_results) -> str:
             )
 
         body_parts.append(
-            f'<h4 style="color:var(--accent);margin:20px 0 8px">'
+            f'<h4 style="color:#60a5fa;margin:20px 0 8px">'
             f'<code>{_esc(domain)}</code>'
-            f' <span style="color:var(--text-muted);font-weight:400">'
+            f' <span style="color:#94a3b8;font-weight:400">'
             f'{_DASH} {summary["total"]} records</span></h4>'
             f'<div style="margin-bottom:8px">{type_pills}</div>'
             f'<table><thead><tr><th>Type</th><th>Name</th><th>Content</th>'
@@ -1469,159 +1285,3 @@ def _html_detail_dns_inventory(domains, dns_results) -> str:
         )
 
     return _collapsible("dns-inv", "DNS Inventory", "\n".join(body_parts))
-
-
-# ── Section 7: Footer ────────────────────────────────────────────────────────
-
-def _html_footer() -> str:
-    return """
-<div class="footer">
-  Generated by <a href="https://github.com/wblv-dev/cloudflare-reporting">cloudflare-reporting</a>
-  &middot; Read-only &mdash; no changes made to any zone.
-</div>"""
-
-
-# ── Chart.js initialization & interactive scripts ────────────────────────────
-
-def _html_charts_script(
-    total_pass, total_warn, total_fail, total_info,
-    cat_data, domains, domain_grades,
-) -> str:
-    # Serialize data for JS
-    cat_labels = _json.dumps(list(cat_data.keys()))
-    cat_pass = _json.dumps([v["PASS"] for v in cat_data.values()])
-    cat_warn = _json.dumps([v["WARN"] for v in cat_data.values()])
-    cat_fail = _json.dumps([v["FAIL"] for v in cat_data.values()])
-
-    domain_donut_js = ""
-    for idx, domain in enumerate(domains):
-        dg = domain_grades.get(domain, {})
-        domain_donut_js += f"""
-  (function(){{
-    var ctx=document.getElementById('domainDonut{idx}');
-    if(!ctx) return;
-    new Chart(ctx,{{
-      type:'doughnut',
-      data:{{
-        labels:['Passed','Warnings','Failures'],
-        datasets:[{{
-          data:[{dg.get("PASS",0)},{dg.get("WARN",0)},{dg.get("FAIL",0)}],
-          backgroundColor:['#059669','#d97706','#dc2626'],
-          borderWidth:0
-        }}]
-      }},
-      options:{{
-        responsive:false,
-        plugins:{{legend:{{display:false}},tooltip:{{enabled:true}}}},
-        cutout:'65%'
-      }}
-    }});
-  }})();
-"""
-
-    return f"""
-<script>
-/* ── Executive donut ───────────────────────────────────────── */
-(function(){{
-  var ctx=document.getElementById('execDonut');
-  if(!ctx) return;
-  new Chart(ctx,{{
-    type:'doughnut',
-    data:{{
-      labels:['Passed','Warnings','Failures','Informational'],
-      datasets:[{{
-        data:[{total_pass},{total_warn},{total_fail},{total_info}],
-        backgroundColor:['#059669','#d97706','#dc2626','#3b82f6'],
-        borderWidth:0,
-        hoverBorderWidth:2,
-        hoverBorderColor:'#e2e8f0'
-      }}]
-    }},
-    options:{{
-      responsive:true,
-      maintainAspectRatio:true,
-      cutout:'60%',
-      plugins:{{
-        legend:{{
-          position:'bottom',
-          labels:{{color:'#94a3b8',padding:16,font:{{size:12}},usePointStyle:true,pointStyle:'circle'}}
-        }},
-        tooltip:{{
-          backgroundColor:'#1e293b',
-          titleColor:'#e2e8f0',
-          bodyColor:'#e2e8f0',
-          borderColor:'#334155',
-          borderWidth:1,
-          cornerRadius:8
-        }}
-      }}
-    }}
-  }});
-}})();
-
-/* ── Risk stacked bar ──────────────────────────────────────── */
-(function(){{
-  var ctx=document.getElementById('riskBar');
-  if(!ctx) return;
-  new Chart(ctx,{{
-    type:'bar',
-    data:{{
-      labels:{cat_labels},
-      datasets:[
-        {{label:'Passed',data:{cat_pass},backgroundColor:'#059669',borderRadius:4}},
-        {{label:'Warnings',data:{cat_warn},backgroundColor:'#d97706',borderRadius:4}},
-        {{label:'Failures',data:{cat_fail},backgroundColor:'#dc2626',borderRadius:4}}
-      ]
-    }},
-    options:{{
-      indexAxis:'y',
-      responsive:true,
-      maintainAspectRatio:true,
-      scales:{{
-        x:{{
-          stacked:true,
-          grid:{{color:'#334155'}},
-          ticks:{{color:'#94a3b8',font:{{size:12}}}}
-        }},
-        y:{{
-          stacked:true,
-          grid:{{display:false}},
-          ticks:{{color:'#e2e8f0',font:{{size:13,weight:'600'}}}}
-        }}
-      }},
-      plugins:{{
-        legend:{{
-          position:'bottom',
-          labels:{{color:'#94a3b8',padding:16,font:{{size:12}},usePointStyle:true,pointStyle:'circle'}}
-        }},
-        tooltip:{{
-          backgroundColor:'#1e293b',
-          titleColor:'#e2e8f0',
-          bodyColor:'#e2e8f0',
-          borderColor:'#334155',
-          borderWidth:1,
-          cornerRadius:8
-        }}
-      }}
-    }}
-  }});
-}})();
-
-/* ── Per-domain mini donuts ────────────────────────────────── */
-{domain_donut_js}
-
-/* ── Collapsible sections ──────────────────────────────────── */
-function toggleCollapsible(header){{
-  var section=header.parentElement;
-  section.classList.toggle('open');
-}}
-
-/* ── Domain detail toggle ──────────────────────────────────── */
-function toggleDomainDetail(btn){{
-  var body=btn.nextElementSibling;
-  if(body){{
-    body.classList.toggle('open');
-    btn.textContent=body.classList.contains('open')?'Hide detailed results':'Show detailed results';
-  }}
-}}
-</script>"""

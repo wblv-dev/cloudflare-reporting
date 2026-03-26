@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Audit Report</title>
+<script>/*CHARTJS_PLACEHOLDER*/</script>
+<style>
+/* ── Reset ──────────────────────────────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:#0a0e1a;color:#e2e8f0;line-height:1.5;min-height:100vh}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.page{max-width:1400px;margin:0 auto;padding:24px}
+.grid{display:grid;gap:20px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:1fr 1fr 1fr}
+.grid-4{grid-template-columns:1fr 1fr 1fr 1fr}
+@media(max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header{background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;
+  padding:32px 40px;margin-bottom:24px;position:relative;overflow:hidden}
+.header::after{content:'';position:absolute;top:-50%;right:-10%;width:300px;height:300px;
+  background:radial-gradient(circle,rgba(99,102,241,.15),transparent 70%);border-radius:50%}
+.header h1{font-size:2em;font-weight:700;margin-bottom:4px}
+.header .subtitle{color:#94a3b8;font-size:.95em}
+.header .compliance-score{position:absolute;right:40px;top:50%;transform:translateY(-50%);
+  text-align:center}
+.header .compliance-score .number{font-size:3.5em;font-weight:800;
+  background:linear-gradient(135deg,#34d399,#3b82f6);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text}
+.header .compliance-score .label{color:#94a3b8;font-size:.85em}
+
+/* ── Section headers ────────────────────────────────────── */
+.section-title{font-size:1.1em;font-weight:700;color:#60a5fa;text-transform:uppercase;
+  letter-spacing:1.5px;margin:32px 0 16px;padding-bottom:8px;
+  border-bottom:2px solid rgba(96,165,250,.2)}
+
+/* ── Cards ──────────────────────────────────────────────── */
+.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:24px;
+  transition:border-color .2s}
+.card:hover{border-color:#374151}
+.card-title{font-size:.75em;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:8px}
+
+/* ── KPI cards ──────────────────────────────────────────── */
+.kpi{text-align:center;padding:28px 20px}
+.kpi .value{font-size:2.8em;font-weight:800;line-height:1}
+.kpi .label{font-size:.8em;color:#94a3b8;margin-top:6px;text-transform:uppercase;letter-spacing:.5px}
+.kpi.green .value{color:#34d399}
+.kpi.amber .value{color:#fbbf24}
+.kpi.red .value{color:#f87171}
+.kpi.blue .value{color:#60a5fa}
+
+/* ── Risk heatmap ───────────────────────────────────────── */
+.heatmap{display:grid;grid-template-columns:auto repeat(4,1fr);gap:2px;font-size:.75em;text-align:center}
+.heatmap .cell{padding:10px 8px;border-radius:6px;font-weight:600}
+.heatmap .header-cell{color:#64748b;padding:8px;font-weight:600}
+.heatmap .label-cell{color:#94a3b8;padding:10px 12px;text-align:right;display:flex;align-items:center;justify-content:flex-end}
+.heat-green{background:rgba(52,211,153,.2);color:#34d399}
+.heat-amber{background:rgba(251,191,36,.2);color:#fbbf24}
+.heat-red{background:rgba(248,113,113,.2);color:#f87171}
+.heat-darkred{background:rgba(220,38,38,.3);color:#fca5a5}
+
+/* ── Progress bars ──────────────────────────────────────── */
+.progress-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.progress-row .label{width:140px;font-size:.85em;color:#94a3b8;text-align:right;flex-shrink:0}
+.progress-track{flex:1;height:28px;background:#1f2937;border-radius:14px;overflow:hidden;display:flex}
+.progress-segment{height:100%;transition:width .6s ease}
+.progress-row .score{width:50px;font-size:.85em;color:#94a3b8;text-align:right}
+
+/* ── Badges ─────────────────────────────────────────────── */
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.75em;font-weight:600;white-space:nowrap}
+.badge-success{background:rgba(52,211,153,.15);color:#34d399}
+.badge-warning{background:rgba(251,191,36,.15);color:#fbbf24}
+.badge-danger{background:rgba(248,113,113,.15);color:#f87171}
+.badge-info{background:rgba(96,165,250,.15);color:#60a5fa}
+.badge-critical{background:rgba(220,38,38,.2);color:#fca5a5}
+.badge-high{background:rgba(249,115,22,.2);color:#fb923c}
+.badge-medium{background:rgba(251,191,36,.15);color:#fbbf24}
+.badge-low{background:rgba(96,165,250,.15);color:#60a5fa}
+
+/* ── Domain cards ───────────────────────────────────────── */
+.domain-card{background:#111827;border:1px solid #1f2937;border-radius:12px;overflow:hidden;margin-bottom:16px}
+.domain-header{padding:20px 24px;display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;transition:background .2s}
+.domain-header:hover{background:#1a2332}
+.domain-header h3{font-size:1em;font-weight:600}
+.domain-badges{display:flex;gap:6px;flex-wrap:wrap}
+.domain-chart{width:80px;height:80px;flex-shrink:0}
+.domain-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.domain-card.open .domain-body{max-height:5000px}
+.domain-body-inner{padding:0 24px 24px}
+.chevron{transition:transform .3s;color:#64748b;font-size:.8em}
+.domain-card.open .chevron{transform:rotate(180deg)}
+
+/* ── Finding cards ──────────────────────────────────────── */
+.finding{background:#111827;border-left:4px solid;border-radius:0 12px 12px 0;padding:20px 24px;margin-bottom:12px}
+.finding.critical{border-color:#dc2626}
+.finding.high{border-color:#f97316}
+.finding.medium{border-color:#eab308}
+.finding.low{border-color:#3b82f6}
+.finding-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.finding-domain{font-weight:600;color:#e2e8f0}
+.finding-check{color:#94a3b8}
+.finding-risk{color:#94a3b8;font-size:.9em;margin-bottom:10px;line-height:1.6}
+.finding-steps{list-style:none;counter-reset:step}
+.finding-steps li{counter-increment:step;padding:6px 0 6px 32px;position:relative;font-size:.9em;color:#cbd5e1}
+.finding-steps li::before{content:counter(step);position:absolute;left:0;width:22px;height:22px;
+  background:#1e293b;border-radius:50%;text-align:center;line-height:22px;font-size:.75em;
+  font-weight:700;color:#60a5fa}
+
+/* ── Tables ─────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse}
+th{background:#0f172a;color:#64748b;padding:10px 14px;text-align:left;font-size:.75em;
+  font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1f2937}
+td{padding:10px 14px;border-bottom:1px solid #1f2937;font-size:.85em;color:#cbd5e1}
+tr:hover td{background:rgba(255,255,255,.02)}
+code{font-family:'SF Mono',Monaco,Consolas,monospace;background:#1e293b;padding:2px 6px;
+  border-radius:4px;font-size:.82em;color:#93c5fd}
+
+/* ── Collapsible ────────────────────────────────────────── */
+.collapse-btn{background:#1e293b;border:1px solid #374151;color:#94a3b8;padding:8px 16px;
+  border-radius:8px;cursor:pointer;font-size:.85em;width:100%;text-align:left;margin-top:12px;
+  transition:all .2s}
+.collapse-btn:hover{background:#374151;color:#e2e8f0}
+.collapse-content{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.collapse-content.open{max-height:10000px}
+
+/* ── Tooltip ────────────────────────────────────────────── */
+.tip{position:relative;border-bottom:1px dotted #4b5563;cursor:help}
+.tip:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:0;
+  background:#1e293b;border:1px solid #374151;color:#cbd5e1;padding:8px 12px;border-radius:8px;
+  font-size:.8em;max-width:300px;width:max-content;z-index:100;line-height:1.4;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);font-weight:400;white-space:normal}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.footer{text-align:center;padding:40px;color:#475569;font-size:.8em;margin-top:40px;
+  border-top:1px solid #1f2937}
+.footer a{color:#60a5fa;text-decoration:none}
+
+/* ── Print ──────────────────────────────────────────────── */
+@media print{
+  body{background:#fff;color:#1a1a2e}
+  .card,.domain-card,.finding{background:#f8fafc;border-color:#e2e8f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .header{background:#1e293b!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .domain-body{max-height:none!important}
+  .collapse-content{max-height:none!important}
+  th{background:#f1f5f9;color:#334155}
+  td{color:#334155;border-color:#e2e8f0}
+  .section-title{color:#1e40af}
+  code{background:#f1f5f9;color:#1e40af}
+  .page{max-width:100%}
+  .section-title{page-break-before:auto}
+  .finding,.domain-card{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ── HEADER ──────────────────────────────────────────── -->
+<div class="header">
+  <div>
+    <h1>Security Audit Report</h1>
+    <div class="subtitle">{{GENERATED}} &middot; {{DOMAIN_COUNT}} domains audited &middot; {{TOTAL_RECORDS}} DNS records</div>
+  </div>
+  <div class="compliance-score">
+    <div class="number">{{COMPLIANCE_PCT}}%</div>
+    <div class="label">Compliant</div>
+  </div>
+</div>
+
+<!-- ── KPI CARDS ───────────────────────────────────────── -->
+<div class="grid grid-4">
+  <div class="card kpi blue">
+    <div class="value">{{DOMAIN_COUNT}}</div>
+    <div class="label">Domains Audited</div>
+  </div>
+  <div class="card kpi green">
+    <div class="value">{{PASS_COUNT}}</div>
+    <div class="label">Checks Passed</div>
+  </div>
+  <div class="card kpi amber">
+    <div class="value">{{WARN_COUNT}}</div>
+    <div class="label">Warnings</div>
+  </div>
+  <div class="card kpi red">
+    <div class="value">{{FAIL_COUNT}}</div>
+    <div class="label">Critical Failures</div>
+  </div>
+</div>
+
+<!-- ── RISK OVERVIEW ───────────────────────────────────── -->
+<div class="section-title">Risk Overview</div>
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-title">Compliance Distribution</div>
+    <div style="max-width:320px;margin:0 auto">
+      <canvas id="complianceDonut" height="280"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Category Scores</div>
+    <div style="padding-top:20px">
+      {{CATEGORY_BARS}}
+    </div>
+  </div>
+</div>
+
+<!-- ── RISK HEATMAP ────────────────────────────────────── -->
+<div class="section-title">Risk Matrix</div>
+<div class="card">
+  <div class="card-title">Findings by Domain &amp; Category</div>
+  <div style="overflow-x:auto;margin-top:12px">
+    {{HEATMAP}}
+  </div>
+</div>
+
+<!-- ── PER-DOMAIN RESULTS ──────────────────────────────── -->
+<div class="section-title">Domain Results</div>
+{{DOMAIN_CARDS}}
+
+<!-- ── FINDINGS & REMEDIATIONS ─────────────────────────── -->
+<div class="section-title">Findings &amp; Remediations <span class="badge badge-danger">{{FINDING_COUNT}}</span></div>
+{{FINDINGS}}
+
+<!-- ── DETAILED RESULTS ────────────────────────────────── -->
+<div class="section-title">Detailed Check Results</div>
+{{DETAIL_SECTIONS}}
+
+<!-- ── FOOTER ──────────────────────────────────────────── -->
+<div class="footer">
+  Generated by <a href="https://github.com/wblv-dev/cloudflare-reporting">cloudflare-reporting</a>
+  &middot; Read-only &mdash; no changes made to any zone.
+</div>
+
+</div><!-- /.page -->
+
+<script>
+var AUDIT_DATA = {{AUDIT_JSON}};
+
+/* ── Compliance donut ──────────────────────────────────── */
+(function(){
+  var ctx = document.getElementById('complianceDonut');
+  if (!ctx || typeof Chart === 'undefined') return;
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Passed', 'Warnings', 'Failures', 'Informational'],
+      datasets: [{
+        data: [AUDIT_DATA.pass, AUDIT_DATA.warn, AUDIT_DATA.fail, AUDIT_DATA.info],
+        backgroundColor: ['#059669','#d97706','#dc2626','#3b82f6'],
+        borderWidth: 0,
+        hoverBorderWidth: 2,
+        hoverBorderColor: '#e2e8f0'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '65%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {color:'#94a3b8', padding:14, font:{size:12}, usePointStyle:true, pointStyle:'circle'}
+        },
+        tooltip: {
+          backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#e2e8f0',
+          borderColor: '#334155', borderWidth: 1, cornerRadius: 8
+        }
+      }
+    }
+  });
+})();
+
+/* ── Domain mini donuts ────────────────────────────────── */
+(AUDIT_DATA.domainCharts || []).forEach(function(d, i){
+  var ctx = document.getElementById('domainDonut' + i);
+  if (!ctx || typeof Chart === 'undefined') return;
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Passed','Warnings','Failures'],
+      datasets: [{data: [d.pass, d.warn, d.fail], backgroundColor:['#059669','#d97706','#dc2626'], borderWidth:0}]
+    },
+    options: {responsive:false, plugins:{legend:{display:false}, tooltip:{enabled:true}}, cutout:'65%'}
+  });
+});
+
+/* ── Toggle domain detail ──────────────────────────────── */
+function toggleDomain(el){
+  var card = el.closest('.domain-card');
+  card.classList.toggle('open');
+}
+
+/* ── Toggle collapse sections ──────────────────────────── */
+function toggleCollapse(btn){
+  var content = btn.nextElementSibling;
+  content.classList.toggle('open');
+  btn.textContent = content.classList.contains('open') ? '▲ Hide details' : '▼ Show details';
+}
+</script>
+</body>
+</html>
