@@ -35,6 +35,9 @@ from cloudflare_reporting.checks import registrar
 from cloudflare_reporting.checks import dns_security
 from cloudflare_reporting.checks import blacklist
 from cloudflare_reporting.checks import reverse_dns
+from cloudflare_reporting.checks import web_security
+from cloudflare_reporting.checks import cert_transparency
+from cloudflare_reporting.checks import optional as optional_checks
 
 
 def parse_args() -> argparse.Namespace:
@@ -212,17 +215,22 @@ async def _run_audit(args: argparse.Namespace) -> int:
             for domain, records in raw_dns.items()
         }
 
-        # ── 3. Live DNS checks ────────────────────────────────────────────
-        logger.info("[3/7] Running live DNS checks ...")
+        # ── 3. Live DNS + HTTP checks ────────────────────────────────────
+        logger.info("[3/7] Running live DNS and HTTP checks ...")
         email_task      = asyncio.create_task(email_security.check_all(resolved))
         dns_sec_task    = asyncio.create_task(dns_security.check_all(resolved, raw_dns))
         blacklist_task  = asyncio.create_task(blacklist.check_all(resolved))
         rdns_task       = asyncio.create_task(reverse_dns.check_all(resolved))
         email_std_task  = asyncio.create_task(email_standards.check_all(resolved))
+        web_sec_task    = asyncio.create_task(web_security.check_all(resolved))
+        ct_task         = asyncio.create_task(cert_transparency.check_all(resolved))
+        osint_task      = asyncio.create_task(optional_checks.check_all(resolved))
 
         (email_results, dns_sec_results, blacklist_results,
-         rdns_results, email_std_results) = await asyncio.gather(
-            email_task, dns_sec_task, blacklist_task, rdns_task, email_std_task
+         rdns_results, email_std_results, web_sec_results,
+         ct_results, osint_results) = await asyncio.gather(
+            email_task, dns_sec_task, blacklist_task, rdns_task,
+            email_std_task, web_sec_task, ct_task, osint_task,
         )
 
         # ── 4. Persist to SQLite ──────────────────────────────────────────
@@ -279,6 +287,9 @@ async def _run_audit(args: argparse.Namespace) -> int:
             blacklist_results  = blacklist_results,
             rdns_results       = rdns_results,
             email_std_results  = email_std_results,
+            web_sec_results    = web_sec_results,
+            ct_results         = ct_results,
+            osint_results      = osint_results,
         )
 
         if "md" in args.format:

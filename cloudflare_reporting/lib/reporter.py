@@ -92,6 +92,7 @@ def write_markdown(
     rdns_results: Dict[str, dict],
     email_std_results: Dict[str, dict] = None,
     output_path: str = "",
+    **kwargs,
 ) -> None:
     sections = [
         _md_header(domains),
@@ -390,6 +391,7 @@ def write_csv(
     rdns_results: Dict[str, dict],
     email_std_results: Dict[str, dict] = None,
     output_path: str = "",
+    **kwargs,
 ) -> None:
     """Write a CSV compliance summary — one row per domain."""
     fieldnames = [
@@ -562,6 +564,9 @@ def write_html(
     blacklist_results: Dict[str, dict],
     rdns_results: Dict[str, dict],
     email_std_results: Dict[str, dict] = None,
+    web_sec_results: Dict[str, dict] = None,
+    ct_results: Dict[str, dict] = None,
+    osint_results: Dict[str, dict] = None,
     output_path: str = "",
     diff_result: dict = None,
 ) -> None:
@@ -572,6 +577,25 @@ def write_html(
         domains, security_results, email_results, dns_sec_results,
         registrar_results, blacklist_results, rdns_results, email_std_results,
     )
+
+    # Add web security header checks to the all_checks list
+    _ws = web_sec_results or {}
+    for d in domains:
+        ws = _ws.get(d, {})
+        for h in ws.get("headers", []):
+            all_checks.append({
+                "domain": d, "category": "Web Security",
+                "check": h.get("label", ""), "recommended": h.get("recommended", ""),
+                "actual": h.get("actual", ""), "grade": h.get("grade", "INFO"),
+            })
+        sec_txt = ws.get("security_txt", {})
+        if sec_txt:
+            all_checks.append({
+                "domain": d, "category": "Web Security",
+                "check": "security.txt", "recommended": "Published (RFC 9116)",
+                "actual": sec_txt.get("reason", ""), "grade": sec_txt.get("grade", "INFO"),
+            })
+
     grades = {
         "pass": sum(1 for c in all_checks if c["grade"] == "PASS"),
         "warn": sum(1 for c in all_checks if c["grade"] == "WARN"),
@@ -590,6 +614,36 @@ def write_html(
         registrar_results, blacklist_results, rdns_results,
     )
 
+    # Build CT data for domains
+    _ct = ct_results or {}
+    ct_data = []
+    for d in domains:
+        ct = _ct.get(d, {})
+        if ct.get("total_certs", 0) > 0:
+            ct_data.append({
+                "domain": d,
+                "total_certs": ct.get("total_certs", 0),
+                "subdomains": ct.get("unique_subdomains", [])[:50],
+                "issuers": ct.get("issuers", {}),
+                "recent_certs": ct.get("recent_certs", [])[:10],
+                "grade": ct.get("grade", "INFO"),
+                "reason": ct.get("reason", ""),
+            })
+
+    # Build web security summary for domains
+    web_data = []
+    for d in domains:
+        ws = _ws.get(d, {})
+        if ws.get("headers"):
+            tech = ws.get("tech", [])
+            web_data.append({
+                "domain": d,
+                "headers": ws["headers"],
+                "security_txt": ws.get("security_txt", {}),
+                "tech": tech,
+                "score": ws.get("score", (0, 0)),
+            })
+
     audit_data = {
         "generated": _ts(),
         "domains": domains,
@@ -601,6 +655,9 @@ def write_html(
         "findings": findings,
         "tooltips": TOOLTIPS,
         "diff": diff_result,
+        "ct": ct_data,
+        "webSecurity": web_data,
+        "osint": osint_results or {},
     }
 
     # Escape data for safe embedding inside <script> tag — prevents XSS via </script> injection
