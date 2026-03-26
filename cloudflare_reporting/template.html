@@ -12,8 +12,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 a{color:#60a5fa;text-decoration:none}
 a:hover{text-decoration:underline}
 
-/* Layout */
-.page{max-width:1400px;margin:0 auto;padding:20px}
+/* Layout — min-width prevents page width jumping between tabs */
+.page{max-width:1400px;margin:0 auto;padding:20px;min-height:100vh}
+.panel{min-height:400px}
 .grid{display:grid;gap:16px}
 .g2{grid-template-columns:1fr 1fr}
 .g3{grid-template-columns:1fr 1fr 1fr}
@@ -137,6 +138,21 @@ code{font-family:'SF Mono',Monaco,Consolas,monospace;background:#1e293b;padding:
 .diff-improvement{background:rgba(52,211,153,.1);border-left:3px solid #059669}
 .diff-dns{background:rgba(96,165,250,.1);border-left:3px solid #3b82f6}
 
+/* Finding detail (expandable row) */
+.finding-row{cursor:pointer;transition:background .15s}
+.finding-row:hover td{background:rgba(96,165,250,.05)}
+.finding-detail{display:none;animation:fadeIn .2s ease}
+.finding-detail td{padding:16px 20px;background:#0f172a;border-left:3px solid #60a5fa}
+.finding-detail .fd-inner{max-width:700px}
+.finding-detail h4{color:#60a5fa;font-size:.9em;margin-bottom:8px}
+.finding-detail .fd-explain{color:#94a3b8;font-size:.88em;line-height:1.6;margin-bottom:12px}
+.finding-detail .fd-steps{list-style:none;counter-reset:fstep;margin:0;padding:0}
+.finding-detail .fd-steps li{counter-increment:fstep;padding:5px 0 5px 28px;position:relative;
+  font-size:.88em;color:#cbd5e1}
+.finding-detail .fd-steps li::before{content:counter(fstep);position:absolute;left:0;width:20px;
+  height:20px;background:#1e293b;border-radius:50%;text-align:center;line-height:20px;
+  font-size:.72em;font-weight:700;color:#60a5fa}
+
 /* Tooltip */
 .tip{position:relative;border-bottom:1px dotted #4b5563;cursor:help}
 .tip:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:0;
@@ -212,6 +228,11 @@ function badge(g,txt){return '<span class="badge '+(GC[g]||'badge-info')+'">'+(t
 function esc(s){if(s==null)return'';var d=document.createElement('div');d.textContent=String(s);return d.innerHTML}
 function tip(label,tooltip){if(!tooltip)return esc(label);return '<span class="tip" data-tip="'+esc(tooltip)+'">'+esc(label)+'</span>'}
 function pct(n,t){return t?Math.round(n/t*100):0}
+function fmtDate(s){
+  if(!s)return'';
+  try{var d=new Date(s);return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+  catch(e){return s}
+}
 
 /* ── TAB SYSTEM ──────────────────────────────────────────── */
 var tabs = [
@@ -234,7 +255,7 @@ function buildSummary(){
   var compPct=pct(D.grades.pass,total);
 
   document.getElementById('heroScore').textContent=compPct+'%';
-  document.getElementById('headerSub').textContent=D.generated+' \u00B7 '+D.domains.length+' domains \u00B7 '+D.totalRecords+' DNS records';
+  document.getElementById('headerSub').textContent=D.generated+' \u00b7 '+D.domains.length+' domains \u00b7 '+D.totalRecords+' DNS records';
 
   var h='';
   // KPI cards - clickable
@@ -247,7 +268,7 @@ function buildSummary(){
 
   // Charts row
   h+='<div class="grid g2">';
-  h+='<div class="card"><div class="card-title">Compliance Distribution</div><div style="max-width:300px;margin:0 auto"><canvas id="mainDonut" height="280"></canvas></div></div>';
+  h+='<div class="card"><div class="card-title">Compliance Distribution</div><div style="position:relative;max-width:320px;margin:0 auto;height:320px"><canvas id="mainDonut"></canvas></div></div>';
   h+='<div class="card"><div class="card-title">Category Scores</div><div style="padding-top:16px" id="catBars"></div></div>';
   h+='</div>';
 
@@ -284,17 +305,47 @@ function buildFindings(){
   h+='</div>';
   h+='<table><thead><tr><th>Domain</th><th>Category</th><th>Check</th><th>Recommended</th><th>Actual</th><th>Grade</th></tr></thead>';
   h+='<tbody id="findingsBody">';
-  D.allChecks.forEach(function(c){
-    h+='<tr class="finding-row" data-grade="'+esc(c.grade)+'" data-cat="'+esc(c.category)+'" data-domain="'+esc(c.domain)+'">';
+  D.allChecks.forEach(function(c,idx){
+    // Main row — clickable
+    h+='<tr class="finding-row" data-grade="'+esc(c.grade)+'" data-cat="'+esc(c.category)+'" data-domain="'+esc(c.domain)+'" onclick="toggleFinding('+idx+')">';
     h+='<td><code>'+esc(c.domain)+'</code></td>';
     h+='<td>'+esc(c.category)+'</td>';
     h+='<td>'+tip(c.check,D.tooltips[c.check]||'')+'</td>';
     h+='<td><code>'+esc(c.recommended||'\u2014')+'</code></td>';
     h+='<td>'+esc(c.actual||'\u2014')+'</td>';
     h+='<td>'+badge(c.grade)+'</td></tr>';
+    // Detail row — hidden by default, shown on click
+    var tt=D.tooltips[c.check]||'';
+    var rem=null;
+    if(c.grade==='FAIL'||c.grade==='WARN'){
+      D.findings.forEach(function(f){if(f.domain===c.domain&&f.check===c.check)rem=f});
+    }
+    h+='<tr class="finding-detail" id="fd'+idx+'" data-grade="'+esc(c.grade)+'" data-cat="'+esc(c.category)+'" data-domain="'+esc(c.domain)+'">';
+    h+='<td colspan="6"><div class="fd-inner">';
+    h+='<h4>'+esc(c.check)+' \u2014 '+esc(c.domain)+'</h4>';
+    if(tt) h+='<div class="fd-explain"><strong>What is this?</strong> '+esc(tt)+'</div>';
+    if(c.actual) h+='<div class="fd-explain"><strong>Current status:</strong> '+esc(c.actual)+'</div>';
+    if(rem&&rem.risk) h+='<div class="fd-explain"><strong>Risk:</strong> '+esc(rem.risk)+'</div>';
+    if(rem&&rem.steps&&rem.steps.length){
+      h+='<div style="margin-bottom:4px;font-size:.85em;color:#60a5fa;font-weight:600">How to fix:</div>';
+      h+='<ol class="fd-steps">';
+      rem.steps.forEach(function(s){h+='<li>'+esc(s)+'</li>'});
+      h+='</ol>';
+    } else if(c.grade==='PASS'){
+      h+='<div class="fd-explain" style="color:#34d399">\u2713 This check is passing. No action required.</div>';
+    } else if(c.grade==='INFO'){
+      h+='<div class="fd-explain">This is an informational finding \u2014 no action required. The setting may not be available on your current Cloudflare plan.</div>';
+    }
+    h+='</div></td></tr>';
   });
   h+='</tbody></table>';
   return h;
+}
+
+function toggleFinding(idx){
+  var el=document.getElementById('fd'+idx);
+  if(!el)return;
+  el.style.display=el.style.display==='table-row'?'none':'table-row';
 }
 
 function applyFindingsFilter(presetGrade){
@@ -307,6 +358,14 @@ function applyFindingsFilter(presetGrade){
     if(cat && row.dataset.cat!==cat) show=false;
     if(dom && row.dataset.domain!==dom) show=false;
     row.style.display=show?'':'none';
+  });
+  // Also hide all detail rows when filter changes
+  document.querySelectorAll('.finding-detail').forEach(function(d){
+    var show=true;
+    if(g && d.dataset.grade!==g) show=false;
+    if(cat && d.dataset.cat!==cat) show=false;
+    if(dom && d.dataset.domain!==dom) show=false;
+    if(!show) d.style.display='none';
   });
 }
 
@@ -378,7 +437,7 @@ function buildRemediations(){
 function buildHistory(){
   if(!D.diff) return '<div style="text-align:center;padding:60px;color:#64748b">No previous run to compare. Run the audit again to see changes.</div>';
   var d=D.diff, h='';
-  h+='<div class="card" style="margin-bottom:16px;padding:16px 20px"><strong>Comparing:</strong> Run #'+d.previous_run_id+' ('+esc(d.previous_run_date)+') &rarr; Run #'+d.current_run_id+' ('+esc(d.current_run_date)+')</div>';
+  h+='<div class="card" style="margin-bottom:16px;padding:16px 20px"><strong>Comparing:</strong> Run #'+d.previous_run_id+' ('+fmtDate(d.previous_run_date)+') &rarr; Run #'+d.current_run_id+' ('+fmtDate(d.current_run_date)+')</div>';
 
   var regs=d.changes.filter(function(c){return c.direction==='regression'});
   var imps=d.changes.filter(function(c){return c.direction==='improvement'});
@@ -515,7 +574,8 @@ function renderCharts(){
   // Render charts and dynamic elements
   buildCatBars();
   buildHeatmap();
-  setTimeout(renderCharts,50);
+  // Delay chart render to ensure canvases are visible in the DOM
+  requestAnimationFrame(function(){setTimeout(renderCharts,100)});
 })();
 </script>
 </body>
